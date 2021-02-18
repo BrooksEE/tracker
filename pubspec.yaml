@@ -20,9 +20,15 @@ dependencies:
   flutter_web_plugins:
     sdk: flutter
   db:
-    path: ../db
+    git:
+      url: https://github.com/BrooksEE/event_db.git
+      ref: master
+    #path: ../db
   cart:
-    path: ../cart
+    git:
+      url: https://github.com/dirjud/event_cart.git
+      ref: master
+    #path: ../cart
 
 dev_dependencies:
   flutter_test:
