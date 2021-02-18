@@ -26,7 +26,7 @@ dependencies:
     #path: ../db
   cart:
     git:
-      url: https://github.com/dirjud/event_cart.git
+      url: https://github.com/BrooksEE/event_cart.git
       ref: master
     #path: ../cart
 
