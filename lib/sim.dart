@@ -29,11 +29,15 @@ class Simulator {
         if(coursePath["distances"][idx]/1.0 > skip) {
           break;
         } else {
-          tracker.addPoint(LatLng(points[idx]["lat"], points[idx]["lon"]), coursePath["distances"][idx] * pace * 60 + startTime, 10, replay: true);
+          LatLng latLng = LatLng(points[idx]["lat"], points[idx]["lon"]);
+          Location location = Location(latLng: latLng, epoch: coursePath["distances"][idx] * pace * 60 + startTime, accuracy: 10);
+          tracker.addPoint(location, replay: true);
         }
       }
       if(idx == 0) {
-        tracker.addPoint(LatLng(points[idx]["lat"], points[idx]["lon"]), startTime, 10);
+        LatLng latLng = LatLng(points[idx]["lat"], points[idx]["lon"]);
+        Location location = Location(latLng: latLng, epoch: startTime, accuracy: 0);
+        tracker.addPoint(location);
       }
       running=true;
       int downsample=1;
@@ -44,7 +48,9 @@ class Simulator {
         if(dt > 0) {
           await Future.delayed(Duration(milliseconds: (dt * 1000).toInt()), () => false);
         }
-        tracker.addPoint(LatLng(points[idx]["lat"], points[idx]["lon"]), epoch, 10);
+        LatLng latLng = LatLng(points[idx]["lat"], points[idx]["lon"]);
+        Location location = Location(latLng: latLng, epoch: epoch, accuracy: 10);
+        tracker.addPoint(location);
         if (!running) {
           print("SIM is exiting");
           return false;
@@ -58,7 +64,7 @@ class Simulator {
 
       List points = [];
       try {
-        var data = await FirebaseFirestore.instance.doc("timing/tracking/archive/1684284").get();
+        var data = await FirebaseFirestore.instance.doc("timing/tracking/archive/1683747").get();
         points = jsonDecode(AsciiDecoder().convert(GZipDecoder().decodeBytes(base64Decode(data["points"]))));
         print("SIM: $points");
         int idx = 0;
@@ -69,11 +75,15 @@ class Simulator {
           if(points[idx]["epoch"]/1.0 - startTime > skip) {
             break;
           } else {
-            tracker.addPoint(LatLng(points[idx]["latM"]/1e6, points[idx]["lngM"]/1e6), points[idx]["epoch"]/1.0, points[idx]["accuracyK"]/1000, replay: true);
+            LatLng latLng = LatLng(points[idx]["latM"]/1e6, points[idx]["lngM"]/1e6);
+            Location location = Location(latLng: latLng, epoch: points[idx]["epoch"]/1.0, accuracy: points[idx]["accuracyK"]/1000.0);
+            tracker.addPoint(location, replay: true);
           }
         }
         if(idx == 0) {
-          tracker.addPoint(LatLng(points[0]["latM"]/1e6, points[0]["lngM"]/1e6), DateTime.now().millisecondsSinceEpoch/1000, points[0]["accuracyK"]/1000);
+          LatLng latLng = LatLng(points[0]["latM"]/1e6, points[0]["lngM"]/1e6);
+          Location location = Location(latLng: latLng, epoch: DateTime.now().millisecondsSinceEpoch/1000.0, accuracy: points[0]["accuracyK"]/1000.0);
+          tracker.addPoint(location);
         }
         running=true;
         int downsample=1;
@@ -81,7 +91,9 @@ class Simulator {
           dt = (points[idx]["epoch"] - points[idx - downsample]["epoch"]) / speedup;
           print("POINT $idx $dt");
           await Future.delayed(Duration(milliseconds: (dt * 1000).toInt()), () => false);
-          tracker.addPoint(LatLng(points[idx]["latM"]/1e6, points[idx]["lngM"]/1e6), DateTime.now().millisecondsSinceEpoch/1000, points[idx]["accuracyK"]/1000);
+          LatLng latLng = LatLng(points[idx]["latM"]/1e6, points[idx]["lngM"]/1e6);
+          Location location = Location(latLng: latLng, epoch: DateTime.now().millisecondsSinceEpoch/1000.0, accuracy: points[idx]["accuracyK"]/1000.0);
+          tracker.addPoint(location);
           if (!running) {
             print("SIM is exiting");
             return false;
