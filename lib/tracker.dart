@@ -17,7 +17,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'sim.dart';
 import 'package:sensors/sensors.dart';
-import 'package:flutter_background_geolocation/flutter_background_geolocation.dart' as bg;
+//import 'package:flutter_background_geolocation/flutter_background_geolocation.dart' as bg;
 
 enum UNITS {
   IMPERIAL,
@@ -40,6 +40,14 @@ class Location {
   double accuracy;
 
   Location({this.latLng, this.epoch, this.accuracy});
+  Location.fromJson(Map<String, dynamic> j) {
+    epoch = j['epoch'] / 1000.0;
+    accuracy = j['acc'];
+    latLng = LatLng(j['lat'], j['lon']);
+  }
+  String toString() {
+    return "lat=${latLng.latitude} lon=${latLng.longitude}";
+  }
 }
 
 enum EVENT_TYPE {
@@ -91,14 +99,26 @@ class Tracker {
   String fireStorePointsPath, fireStoreImuPath;
   String fireStoreStatusPath;
 
-  static const MethodChannel _channel =
-      const MethodChannel('tracker');
+  static const MethodChannel _channel = const MethodChannel('tracker');
 
+  static Future<void> startLocServices({String title, String text, Function cb}) async {
+    _channel.setMethodCallHandler((MethodCall call) async {
+      Map loc_ = jsonDecode(call.arguments);
+      Location loc;
+      try {
+        loc = Location.fromJson(loc_);
+      } catch(e) {
+        print(e);
+        return;
+      }
+      cb(loc);
+    });
+    await _channel.invokeMethod('start', {"title": title, "text": text});
+  }
 
-
-  static Future<String> get platformVersion async {
-    final String version = await _channel.invokeMethod('getPlatformVersion');
-    return version;
+  static Future<void> stopLocServices() async {
+    _channel.setMethodCallHandler(null);
+    await _channel.invokeMethod('stop');
   }
 
   bool fireStoreSync;
@@ -154,7 +174,7 @@ class Tracker {
           String dev = tp["devices"][idx2];
           if (dev.startsWith("PHONE")) {
             this.timingPoints.add(tp);
-            tp["device"] = dev;
+// star            tp["device"] = dev;
           }
         }
       }
@@ -198,7 +218,7 @@ class Tracker {
       for (var idx = 0; idx < points.length - 1; idx++) {
         points2.add(points[idx]); // insert current point
         // calc distance between current point and next point
-        double dx = distanceMeters(LatLng(points[idx]["lat"], points[idx]["lon"]),
+            double dx = distanceMeters(LatLng(points[idx]["lat"], points[idx]["lon"]),
             LatLng(points[idx + 1]["lat"], points[idx + 1]["lon"]));
         // calc how many points need inserted between to ensure the min distance between points is met
         int N = (dx / min_dx_meters).floor();
@@ -313,18 +333,23 @@ class Tracker {
       simulator = Simulator();
       simulator.start(this, coursePath);
     } else {
-      await _start();
-/*
+//      await _start();
+
       PermissionStatus status = await Permission.locationWhenInUse.request();
       if (status.isGranted) {
-        await _channel.invokeMethod('start');
+        await startLocServices(
+          title: appTitle,
+          text: "Tracking your race",
+          cb: (Location loc) {
+          print("${loc}");
+          addPoint(loc);
+        });
       } else {
         throw Exception("PERMISSION_DENIED");
       }
- */
     }
   }
-
+/*
   Future<void> _setLoc(bg.Location loc) async {
     Location location = Location(
       latLng: LatLng(loc.coords.latitude, loc.coords.longitude),
@@ -332,7 +357,8 @@ class Tracker {
       accuracy: loc.coords.accuracy);
     await addPoint(location);
   }
-
+*/
+  /*
   Future<void> _start() async {
     // Fired whenever a location is recorded
     bg.BackgroundGeolocation.onLocation((bg.Location loc) {
@@ -387,7 +413,7 @@ class Tracker {
       bg.BackgroundGeolocation.start();
     }
   }
-
+*/
 
   Future<void> stop() async {
     times.add(DateTime.now().millisecondsSinceEpoch);
@@ -396,7 +422,7 @@ class Tracker {
     if(sim) {
       simulator.stop();
     } else {
-      return await bg.BackgroundGeolocation.stop();
+      await stopLocServices();
     }
   }
 

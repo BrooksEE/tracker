@@ -10,7 +10,7 @@ environment:
 
 dependencies:
   sensors:
-  flutter_background_geolocation:
+#  flutter_background_geolocation:
   permission_handler:
     git:
       url: https://github.com/BrooksEE/flutter-permission-handler.git
@@ -20,13 +20,13 @@ dependencies:
   flutter_web_plugins:
     sdk: flutter
   db:
-    git:
-      url: https://github.com/BrooksEE/event_db.git
-    #path: ../db
+    #git:
+    #  url: https://github.com/BrooksEE/event_db.git
+    path: ../db
   cart:
-    git:
-      url: https://github.com/BrooksEE/event_cart.git
-    #path: ../cart
+    #git:
+    #  url: https://github.com/BrooksEE/event_cart.git
+    path: ../cart
 
 dev_dependencies:
   flutter_test:
