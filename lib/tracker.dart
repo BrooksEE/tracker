@@ -46,7 +46,7 @@ class Location {
     latLng = LatLng(j['lat'], j['lon']);
   }
   String toString() {
-    return "lat=${latLng.latitude} lon=${latLng.longitude}";
+    return "lat=${latLng.latitude} lon=${latLng.longitude} epoch=${epoch}";
   }
 }
 
@@ -103,17 +103,28 @@ class Tracker {
 
   static Future<void> startLocServices({String title, String text, Function cb}) async {
     _channel.setMethodCallHandler((MethodCall call) async {
-      Map loc_ = jsonDecode(call.arguments);
-      Location loc;
-      try {
-        loc = Location.fromJson(loc_);
-      } catch(e) {
-        print(e);
-        return;
-      }
-      cb(loc);
+        if(call.method == "onLocation") {
+          Location loc;
+          Map locMap;
+          try {
+            if(call.arguments is String) {
+              locMap = jsonDecode(call.arguments);
+            } else if(call.arguments is Map) {
+              locMap = Map<String, dynamic>.from(call.arguments);
+            } else {
+              print("Unknown loc type");
+              return;
+            }
+            loc = Location.fromJson(locMap);
+          } catch(e) {
+            print(e);
+            return;
+          }
+          cb(loc);
+        }
     });
-    await _channel.invokeMethod('start', {"title": title, "text": text});
+    var r = await _channel.invokeMethod('start', {"title": title, "text": text});
+    print("START $r");
   }
 
   static Future<void> stopLocServices() async {
@@ -152,13 +163,13 @@ class Tracker {
     this.onPathUpdate: null,
     this.onPathCompleted: null,
   }) {
-    _channel.setMethodCallHandler((MethodCall call) async {
-      if(call.method == "setLocation") {
-        print("setLocation called ${call.arguments}");
-        Map args = call.arguments;
-        addPoint(Location(latLng: LatLng(args["lat"], args["lon"]), epoch: args["epoch"], accuracy: args["accuracy"]));
-      }
-    });
+    //_channel.setMethodCallHandler((MethodCall call) async {
+    //  if(call.method == "setLocation") {
+    //    print("setLocation called ${call.arguments}");
+    //    Map args = call.arguments;
+    //    addPoint(Location(latLng: LatLng(args["lat"], args["lon"]), epoch: args["epoch"], accuracy: args["accuracy"]));
+    //  }
+    //});
     times.clear();
     // only keep timingpoints which have devices starting the the nane "PHONE"
     offCourse = 0;
@@ -341,9 +352,9 @@ class Tracker {
           title: appTitle,
           text: "Tracking your race",
           cb: (Location loc) {
-          print("${loc}");
-          addPoint(loc);
-        });
+            print("${loc}");
+            addPoint(loc);
+          });
       } else {
         throw Exception("PERMISSION_DENIED");
       }
