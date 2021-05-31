@@ -114,22 +114,28 @@ public class Tracker : Service() {
         Log.i("BLE", "onStartCommand")
         data = intent.getParcelableExtra("messenger");
         Toast.makeText(this, "service starting", Toast.LENGTH_SHORT).show()
-        val notificationIntent = Intent(this, FlutterActivity::class.java)
-        val pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0)
+        val notificationIntent = //Intent(this, FlutterActivity::class.java)
+        this.packageManager
+                .getLaunchIntentForPackage(this.packageName)
+                ?.setPackage(null)
+                ?.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+
+                val pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0)
 
         val channelId =
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    createNotificationChannel("my_service", "My Background Service")
+                    createNotificationChannel("tracker", "Tracker")
                 } else {
                     // If earlier version channel ID is not used
                     // https://developer.android.com/reference/android/support/v4/app/NotificationCompat.Builder.html#NotificationCompat.Builder(android.content.Context)
                     ""
                 }
 
+        val rId : Int? = this.resources.getIdentifier("notification", "drawable", this.packageName)
         val notification = Notification.Builder(this, channelId)
                 .setContentTitle(intent.getStringExtra("title") ?: "TITLE")
                 .setContentText(intent.getStringExtra("text") ?: "text")
-                .setSmallIcon(R.drawable.ic_fg)
+                .setSmallIcon(rId ?: R.drawable.ic_fg)
                 .setContentIntent(pendingIntent)
                 .build()
         startForeground(1, notification)
