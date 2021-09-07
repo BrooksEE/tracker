@@ -22,10 +22,12 @@ dependencies:
   db:
     git:
       url: https://github.com/BrooksEE/event_db.git
+      ref: b36a48c5e4d5265cc9d7851b0d3c81e59ab39b82
     #path: ../db
   cart:
     git:
       url: https://github.com/BrooksEE/event_cart.git
+      ref: 8dea3344ee71666a402154f082e32f1094f4c8da
     #path: ../cart
 
 dev_dependencies:
