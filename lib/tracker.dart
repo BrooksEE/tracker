@@ -16,7 +16,7 @@ import 'dart:typed_data';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'sim.dart';
-import 'package:sensors/sensors.dart';
+//import 'package:sensors/sensors.dart';
 //import 'package:flutter_background_geolocation/flutter_background_geolocation.dart' as bg;
 
 enum UNITS {
@@ -24,9 +24,9 @@ enum UNITS {
   SI,
 }
 
-CollectionReference _pntsCollection = null;
-CollectionReference _imuCollection = null;
-DocumentReference _locRef = null;
+CollectionReference? _pntsCollection = null;
+CollectionReference? _imuCollection = null;
+DocumentReference? _locRef = null;
 double _lastPointsEpoch = 0;
 int OFF_COURSE_COUNT_THRESHOLD = 15;
 double THRESHOLD_OFF_COURSE = 70;
@@ -35,12 +35,12 @@ double THRESHOLD_MATCH_UPPER_BOUND = 200;
 
 
 class Location {
-  LatLng latLng;
-  double epoch;
-  double accuracy;
+  late LatLng latLng;
+  late double epoch;
+  late double accuracy;
 
-  Location({this.latLng, this.epoch, this.accuracy});
-  Location.fromJson(Map<String, dynamic> j) {
+  Location({required this.latLng, required this.epoch, required this.accuracy});
+  Location.fromJson(Map<dynamic, dynamic> j) {
     epoch = j['epoch'] / 1000.0;
     accuracy = j['acc'];
     latLng = LatLng(j['lat'], j['lon']);
@@ -63,45 +63,42 @@ class Tracker {
   static const double METERS_PER_MILE = 1609.344;
   static const double METERS_PER_KM = 10000;
 
-  Participant participant;
+  Participant? participant;
   UNITS units = UNITS.IMPERIAL;
-  Set<Polyline> polylines;
-  Polyline myLine;
-  Polyline myLineFixed;
-  Polyline course;
-  Marker lastPosMarker;
-  LatLng lastPos;
+  late Set<Polyline> polylines;
+  late Polyline myLine;
+  late Polyline myLineFixed;
+  Polyline? course;
+  //Marker? lastPosMarker;
+  LatLng? lastPos;
   List<Watcher> watchers = [];
   double prevDist = 0;
   String deviceId;
 
-  int segIdx;
-  int posIdx; // index in course of current position.
-  double distance;
-  List<double> epochs;
-  List<double> distances;
-  Map coursePath;
-  //my.State state;
+  int segIdx = 0;
+  int posIdx = 0; // index in course of current position.
+  double distance = 0;
+  List<double>? distances;
+  Map? coursePath;
   List segments = [];
   double prevSeconds = 0;
   List timingPoints = [];
   bool stateNearLastPointOfSegment = false;
-  BitmapDescriptor pinLocationIcon;
-  int offCourse;
-  bool offCourseWarning;
-  Function onOffCourse;
-  Function(double) onMatchedNewLocation;
-  Function(double) onBackOnCourse;
-  Function(Location) onLocation;
-  Function(Location, double, Map, bool, double) onPathUpdate;
-  Function onPathCompleted;
-  Simulator simulator;
-  String fireStorePointsPath, fireStoreImuPath;
-  String fireStoreStatusPath;
+  int offCourse = 0;
+  bool offCourseWarning = false;
+  Function? onOffCourse;
+  Function(double)? onMatchedNewLocation;
+  Function(double)? onBackOnCourse;
+  Function(Location)? onLocation;
+  Function(Location, double, Map?, bool, double?)? onPathUpdate;
+  Function? onPathCompleted;
+  Simulator? simulator;
+  String? fireStorePointsPath, fireStoreImuPath;
+  String? fireStoreStatusPath;
 
   static const MethodChannel _channel = const MethodChannel('tracker');
 
-  static Future<void> startLocServices({String title, String text, Function cb}) async {
+  static Future<void> startLocServices({required String title, required String text, required Function cb}) async {
     _channel.setMethodCallHandler((MethodCall call) async {
         if(call.method == "onLocation") {
           Location loc;
@@ -110,7 +107,7 @@ class Tracker {
             if(call.arguments is String) {
               locMap = jsonDecode(call.arguments);
             } else if(call.arguments is Map) {
-              locMap = Map<String, dynamic>.from(call.arguments);
+              locMap = Map<dynamic, dynamic>.from(call.arguments);
             } else {
               print("Unknown loc type");
               return;
@@ -141,13 +138,13 @@ class Tracker {
   /// Title of app as displayed in notification window
   String appTitle;
   int id;
-  static StreamSubscription subscriptionAccel, subscriptionGyro;
+  static StreamSubscription? subscriptionAccel, subscriptionGyro;
 
   Tracker({
-    this.id,
-    this.eventType,
-    this.appTitle,
-    this.deviceId,
+    required this.id,
+    required this.eventType,
+    required this.appTitle,
+    required this.deviceId,
     this.fireStoreSync: false,
     this.fireStorePointsPath: null,
     this.fireStoreStatusPath: null,
@@ -198,10 +195,10 @@ class Tracker {
     if(coursePath != null) {
       print("TIMING POINTS=$timingPoints");
       print(coursePath);
-      print("Length point 0=${coursePath["points"].length}");
+      print("Length point 0=${coursePath!["points"].length}");
       List points = [];
-      for (int idx = 0; idx < coursePath["points"].length; idx++) {
-        Map cp = coursePath["points"][idx];
+      for (int idx = 0; idx < coursePath!["points"].length; idx++) {
+        Map cp = coursePath!["points"][idx];
         if (cp.containsKey("directions")) {
           for (int idx2 = 0; idx2 < cp["directions"].length; idx2++) {
             points.add(cp["directions"][idx2]);
@@ -209,15 +206,15 @@ class Tracker {
         }
         points.add(cp);
       }
-      coursePath["points"] = points;
-      print("Length point 1=${coursePath["points"].length}");
+      coursePath!["points"] = points;
+      print("Length point 1=${coursePath!["points"].length}");
 
       course = Polyline(
         polylineId: PolylineId("1"),
         color: Color.fromARGB(128, 255, 90, 90),
         width: 10,
         zIndex: 1,
-        points: toPoints(coursePath),
+        points: toPoints(coursePath!),
       );
 
       // insert interpolation points now to ensure any large gaps between points
@@ -247,8 +244,8 @@ class Tracker {
         // the last point that is not added by the previous algorithm
         points2.add(points[points.length - 1]);
       }
-      coursePath["points"] = points2;
-      print("Length point 2=${coursePath["points"].length}");
+      coursePath!["points"] = points2;
+      print("Length point 2=${coursePath!["points"].length}");
 
       posIdx = -1;
       segIdx = 0;
@@ -261,10 +258,10 @@ class Tracker {
         zIndex: 2,
       );
       //polylines.add(myLine);
-      polylines.add(course);
+      polylines.add(course!);
       polylines.add(myLineFixed);
-      distances = distancesMeters(toPoints(coursePath));
-      coursePath["distances"] = distances;
+      distances = distancesMeters(toPoints(coursePath!));
+      coursePath!["distances"] = distances;
       segmentCourse();
       print("Created ${segments.length} segments");
     }
@@ -280,39 +277,38 @@ class Tracker {
 
     _lastPointsEpoch = 0;
     if(fireStorePointsPath != null) {
-      _pntsCollection = FirebaseFirestore.instance.collection(fireStorePointsPath);
+      _pntsCollection = FirebaseFirestore.instance.collection(fireStorePointsPath!);
     } else {
       _pntsCollection = null;
     }
     if(fireStoreStatusPath != null) {
-      _locRef  = FirebaseFirestore.instance.doc(fireStoreStatusPath);
+      _locRef  = FirebaseFirestore.instance.doc(fireStoreStatusPath!);
     } else {
       _locRef = null;
     }
     if(false) {
-      if(subscriptionGyro != null) {
-        subscriptionGyro.cancel();
-        subscriptionGyro = null;
-      }
-      if(subscriptionAccel != null) {
-        subscriptionAccel.cancel();
-        subscriptionAccel = null;
-      }
+      subscriptionGyro?.cancel();
+      subscriptionGyro = null;
+      subscriptionAccel?.cancel();
+      subscriptionAccel = null;
       if(fireStoreImuPath != null) {
+        /*
         _imuCollection = FirebaseFirestore.instance.collection(fireStoreImuPath);
         subscriptionAccel = accelerometerEvents.listen((AccelerometerEvent event) {
           _imuCollection.add({"e":DateTime.now().millisecondsSinceEpoch, "x": event.x, "y": event.y, "z": event.z, "type":"a"});
         });
+        */
         // [AccelerometerEvent (x: 0.0, y: 9.8, z: 0.0)]
 
         //userAccelerometerEvents.listen((UserAccelerometerEvent event) {
         //  print(event);
         //});
         // [UserAccelerometerEvent (x: 0.0, y: 0.0, z: 0.0)]
-
+        /*
         subscriptionGyro = gyroscopeEvents.listen((GyroscopeEvent event) {
           _imuCollection.add({"e":DateTime.now().millisecondsSinceEpoch, "x": event.x, "y": event.y, "z": event.z, "type":"g"});
         });
+         */
       } else {
         _imuCollection = null;
         subscriptionAccel = null;
@@ -341,8 +337,10 @@ class Tracker {
     times.add(DateTime.now().millisecondsSinceEpoch);
     print("SIM: ${sim}");
     if(sim) {
-      simulator = Simulator();
-      simulator.start(this, coursePath);
+      if(coursePath != null) {
+        simulator = Simulator();
+        simulator?.start(this, coursePath!);
+      }
     } else {
 //      await _start();
 
@@ -431,7 +429,7 @@ class Tracker {
     subscriptionAccel?.cancel();
     subscriptionGyro?.cancel();
     if(sim) {
-      simulator.stop();
+      simulator?.stop();
     } else {
       await stopLocServices();
     }
@@ -451,19 +449,21 @@ class Tracker {
         "distK": (distance*1e3).toInt(),
       };
       if(_pntsCollection != null) {
-        _pntsCollection.add(latLng_).then((ref) {}, onError: (e) {
+        _pntsCollection!.add(latLng_).then((ref) {}, onError: (e) {
           print("exception writing point: ${e}");
         });
       }
       if(_locRef != null && latLng_["epoch"] - _lastPointsEpoch >= 5) {
-        _locRef.set({"location": latLng_}, SetOptions(merge: true)).then((ref) {}, onError: (e) {
+        _locRef!.set({"location": latLng_}, SetOptions(merge: true)).then((ref) {}, onError: (e) {
           print("exception writing location: ${e}");
         });
         _lastPointsEpoch = latLng_["epoch"];
       }
     }
     myLine.points.add(latLng);
-    onLocation(location);
+    if(onLocation != null) {
+      onLocation!(location);
+    }
 
     if (location.accuracy > 50) {
       lastPos = latLng;
@@ -472,10 +472,10 @@ class Tracker {
 
     if(segments.length == 0) {
       if(lastPos != null) {
-        distance += distanceMeters(latLng, lastPos);
+        distance += distanceMeters(latLng, lastPos!);
       }
       if(onPathUpdate != null) {
-        onPathUpdate(location, distance, null, replay, null);
+        onPathUpdate!(location, distance, null, replay, null);
       }
       lastPos = latLng;
       return;
@@ -546,7 +546,7 @@ class Tracker {
           if(!replay && !offCourseWarning) {
             offCourseWarning = true;
             if(onOffCourse != null) {
-              onOffCourse();
+              onOffCourse!();
             }
           }
         }
@@ -558,7 +558,7 @@ class Tracker {
             double newDist = (segments[watcher.segIdx]["distances"][pIdx] * 10).round() / 10.0;
             if(!replay) {
               if(onMatchedNewLocation != null) {
-                onMatchedNewLocation(newDist);
+                onMatchedNewLocation!(newDist);
               }
             }
             set_distance(newDist);
@@ -575,7 +575,7 @@ class Tracker {
       offCourseWarning = false;
       if(!replay) {
         if(onBackOnCourse != null) {
-          onBackOnCourse(distance);
+          onBackOnCourse!(distance);
         }
       }
     }
@@ -585,8 +585,8 @@ class Tracker {
       distance = seg["distances"][posIdx];
       myLineFixed.points.add(seg["latlngs"][posIdx]);
       Map p = seg["points"][posIdx];
-      if(onPathUpdate != null) {
-        onPathUpdate(location, distance, p, replay, distances[distances.length-1]);
+      if(onPathUpdate != null && distances != null) {
+        onPathUpdate!(location, distance, p, replay, distances![distances!.length-1]);
       }
     }
     print("posIdx=$posIdx newPosIdx=$newPosIdx");
@@ -603,13 +603,16 @@ class Tracker {
       posIdx = -1;
     } else {
       if(onPathCompleted != null) {
-        onPathCompleted();
+        onPathCompleted!();
       }
     }
   }
 
   void segmentCourse() {
-    print("COURSE POINTS LENGTH: ${coursePath['points'].length}");
+    if(coursePath == null || distances == null) {
+      return;
+    }
+    print("COURSE POINTS LENGTH: ${coursePath!['points'].length}");
     Map seg = {
       "offset": 0,
       "points": <Map>[],
@@ -618,7 +621,7 @@ class Tracker {
       "indexs": <int>[],
     };
     segments.add(seg);
-    List points = coursePath["points"];
+    List points = coursePath!["points"];
     for (int idx = 0; idx < points.length; idx++) {
       Map p = points[idx];
       Map<String, dynamic> data = {"idx": idx};
@@ -636,16 +639,16 @@ class Tracker {
       p["data"] = data;
       seg["points"].add(p);
       seg["latlngs"].add(LatLng(p["lat"], p["lon"]));
-      seg["distances"].add(distances[idx]);
+      seg["distances"].add(distances![idx]);
       seg["indexs"].add(idx);
       if (data.containsKey("segment")) {
         seg = {
-          "offset": distances[idx],
+          "offset": distances![idx],
           "points": <Map>[
             {"lat": p["lat"], "lon": p["lon"]}
           ],
           "latlngs": <LatLng>[LatLng(p["lat"], p["lon"])],
-          "distances": <double>[distances[idx]],
+          "distances": <double>[distances![idx]],
           "indexs": <int>[idx],
         };
         segments.add(seg);
@@ -705,9 +708,9 @@ class Tracker {
     print("HISTORY: ENTRY");
     if(_pntsCollection == null) { return; }
     try {
-      QuerySnapshot snapshot = await _pntsCollection.orderBy('epoch').get();
+      QuerySnapshot snapshot = await _pntsCollection!.orderBy('epoch').get();
       snapshot.docs.forEach((QueryDocumentSnapshot s) {
-        Map p = s.data();
+        Map p = s.data() as Map;
         print("HISTORY: $p");
         LatLng latLng = LatLng(p["latM"] / 1e6, p["lngM"] / 1e6);
         Location location = Location(latLng: latLng, epoch: p["epoch"]/1.0, accuracy: p["accuracyK"] / 1000.0);
@@ -748,8 +751,8 @@ class Watcher {
   int segIdx;
   int posIdx;
   Map seg;
-  double accum;
-  bool noMatch;
+  double accum = 0;
+  bool noMatch = false;
   Watcher(this.segIdx, this.posIdx, this.seg) {
     accum = 0;
     noMatch = false;
@@ -791,9 +794,9 @@ class Watcher {
   }
 }
 
-Future<Uint8List> getBytesFromAsset(String path, int width) async {
+Future<Uint8List?> getBytesFromAsset(String path, int width) async {
   ByteData data = await rootBundle.load(path);
   ui.Codec codec = await ui.instantiateImageCodec(data.buffer.asUint8List(), targetWidth: width);
   ui.FrameInfo fi = await codec.getNextFrame();
-  return (await fi.image.toByteData(format: ui.ImageByteFormat.png)).buffer.asUint8List();
+  return (await fi.image.toByteData(format: ui.ImageByteFormat.png))?.buffer.asUint8List();
 }
