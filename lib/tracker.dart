@@ -1,8 +1,12 @@
+import 'dart:convert';
+import 'package:convert/convert.dart';
 import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:db/db.dart';
+import 'package:db/RPC.dart';
+import 'package:db/dialogs.dart' as dlg;
 import 'dart:math' as math;
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -16,6 +20,10 @@ import 'dart:typed_data';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'sim.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as pth;
+import 'package:flutter_archive/flutter_archive.dart';
+import 'package:crypto/crypto.dart';
 //import 'package:sensors/sensors.dart';
 //import 'package:flutter_background_geolocation/flutter_background_geolocation.dart' as bg;
 
@@ -799,4 +807,82 @@ Future<Uint8List?> getBytesFromAsset(String path, int width) async {
   ui.Codec codec = await ui.instantiateImageCodec(data.buffer.asUint8List(), targetWidth: width);
   ui.FrameInfo fi = await codec.getNextFrame();
   return (await fi.image.toByteData(format: ui.ImageByteFormat.png))?.buffer.asUint8List();
+}
+
+
+String dt2elapsed(double dt) {
+  int h = (dt / 3600).floor();
+  int m = ((dt - 3600 * h) / 60).floor();
+  int s = (dt - 3600 * h - 60 * m).floor();
+  return "$h:${(m < 10) ? "0" : ""}$m:${(s < 10) ? "0" : ""}$s";
+}
+
+String pace2str(double dt) {
+  int m = (dt / 60).floor();
+  int s = (dt - 60 * m).floor();
+  return "${m < 10 ? "0" : ""}$m:${s < 10 ? "0" : ""}$s";
+}
+
+
+class RaceData {
+  Map? raceData;
+  Race race;
+
+  RaceData(this.race);
+
+  dynamic? get(String key) {
+    if(raceData?[key] != null) {
+      return raceData![key];
+    }
+    return null;
+  }
+
+  Future<void> sync() async {
+    Directory appDocDir = await getApplicationDocumentsDirectory();
+    String? url = race.url_app_data;
+    if (url == null) {
+      raceData = null;
+    } else {
+      List p = url.split("/");
+      String fname = p[p.length - 1];
+      fname = fname.replaceAll(" ", "");
+      File file = File(pth.join(appDocDir.path, fname));
+
+      int retry=10;
+      while(!await file.exists() || !await shaCheck(file)) {
+        await RPC().fileDownload(url, fname);
+        retry--;
+        if(retry < 0) {
+          return;
+        }
+      }
+      final destinationDir = Directory(pth.join(appDocDir.path, "race_data"));
+      if(await destinationDir.exists()) {
+        await destinationDir.delete(recursive: true);
+      }
+      try {
+        await ZipFile.extractToDirectory(zipFile: file, destinationDir: destinationDir);
+      } catch (e) {
+        print(e);
+      }
+      File dataFile = File(pth.join(destinationDir.path, "data.json"));
+      if(! await dataFile.exists()) {
+        dlg.showError("Error: Race data file does not exist");
+      } else {
+        raceData = jsonDecode(await dataFile.readAsString());
+        raceData!["path"] = destinationDir.path;
+        print("TUT: ${raceData!["instructions"]}");
+        print("PATHS: ${raceData!["paths"]}");
+      }
+    }
+  }
+
+  Future<bool> shaCheck(File file)  async {
+    Digest fdigest = await sha1.bind(file.openRead()).first;
+    String sha1sumA = hex.encode(fdigest.bytes);
+    String sha1sumB = file.path.split("_").last.split(".")[0];
+    print("SHA1SUMA: $sha1sumA");
+    print("SHA1SUMB: $sha1sumB");
+    return sha1sumA == sha1sumB;
+  }
 }
