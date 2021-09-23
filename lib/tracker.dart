@@ -886,3 +886,23 @@ class RaceData {
     return sha1sumA == sha1sumB;
   }
 }
+
+Future<Map> get_mapp(int id, BuildContext context) async {
+  return await RPC()
+      .rpc("gmaps", "Mapp", "get", {"id": id}, "Fetching Map...");
+}
+
+Future<Map> get_from_path(int id) async {
+  return await RPC().rpc("gmaps", "Mapp", "get_from_path", {"id": id}, "Fetching Map...");
+}
+
+List<LatLng> toPoints(Map path) {
+  List<LatLng> points = <LatLng>[];
+  for (int idx = 0; idx < path["points"].length; idx++) {
+    var pt = path["points"][idx];
+    double lat = pt["lat"];
+    double lng = pt["lon"];
+    points.add(LatLng(lat, lng));
+  }
+  return points;
+}
