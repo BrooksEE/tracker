@@ -16,7 +16,7 @@ class Simulator {
   Future<bool> start(Tracker tracker, Map coursePath) async {
 
     if(true) { // sim the route at a certain pace
-      double pace = 4; // min/mile
+      double pace = 2; // min/mile
       double skip = 0;
       List points = coursePath["points"];
       print("SIM0: ${points[0]}");

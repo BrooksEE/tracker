@@ -13,7 +13,7 @@ dependencies:
   crypto: ^3.0.1
   flutter_archive: ^4.0.1
   google_maps_flutter: ^2.0.6
-  permission_handler: ^8.0.0+2
+  permission_handler: ^8.1.6
   path: ^1.8.0
   path_provider: ^2.0.5
   flutter:
