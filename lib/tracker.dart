@@ -860,11 +860,14 @@ class RaceData {
       if(await destinationDir.exists()) {
         await destinationDir.delete(recursive: true);
       }
+      int t0 = DateTime.now().millisecondsSinceEpoch;
       try {
         await ZipFile.extractToDirectory(zipFile: file, destinationDir: destinationDir);
       } catch (e) {
         print(e);
       }
+      int t1 = DateTime.now().millisecondsSinceEpoch;
+      print("Unzip took ${t1-t0} seconds.");
       File dataFile = File(pth.join(destinationDir.path, "data.json"));
       if(! await dataFile.exists()) {
         dlg.showError("Error: Race data file does not exist");
