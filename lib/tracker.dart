@@ -837,7 +837,9 @@ class RaceData {
     return null;
   }
 
-  Future<void> sync() async {
+  Future<void> sync({
+    Function? success=null,
+  }) async {
     Directory appDocDir = await getApplicationDocumentsDirectory();
     String? url = race.url_app_data;
     if (url == null) {
@@ -877,6 +879,9 @@ class RaceData {
         print("TUT: ${raceData!["instructions"]}");
         print("PATHS: ${raceData!["paths"]}");
       }
+    }
+    if(success != null) {
+      success();
     }
   }
 
