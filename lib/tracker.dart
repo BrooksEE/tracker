@@ -88,6 +88,7 @@ class Tracker {
   double distance = 0;
   List<double>? distances;
   Map? coursePath;
+  Map completeCourse = {};
   List segments = [];
   double prevSeconds = 0;
   List timingPoints = [];
@@ -443,11 +444,19 @@ class Tracker {
     }
   }
 
-
+  bool trackThisPoint(LatLng latLng) {
+    List p = findClosestPoint(completeCourse["latlngs"], latLng);
+    double dist = p[1];
+    if(dist < 200) {
+      return true;
+    } else {
+      return false;
+    }
+  }
 
   void addPoint(Location location, {replay = false}) {
     LatLng latLng = location.latLng;
-    if(!replay) {
+    if(!replay && trackThisPoint(latLng)) {
       Map<String, dynamic> latLng_ = {
         "accuracyK": (location.accuracy*1000).toInt(),
         "dev_id": deviceId,
@@ -629,6 +638,13 @@ class Tracker {
       "indexs": <int>[],
     };
     segments.add(seg);
+    completeCourse = {
+      "offset": 0,
+      "points": <Map>[],
+      "latlngs": <LatLng>[],
+      "distances": <double>[],
+      "indexs": <int>[],
+    };
     List points = coursePath!["points"];
     for (int idx = 0; idx < points.length; idx++) {
       Map p = points[idx];
@@ -649,6 +665,10 @@ class Tracker {
       seg["latlngs"].add(LatLng(p["lat"], p["lon"]));
       seg["distances"].add(distances![idx]);
       seg["indexs"].add(idx);
+      completeCourse["points"].add(p);
+      completeCourse["latlngs"].add(LatLng(p["lat"], p["lon"]));
+      completeCourse["distances"].add(distances![idx]);
+      completeCourse["indexs"].add(idx);
       if (data.containsKey("segment")) {
         seg = {
           "offset": distances![idx],
