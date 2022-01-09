@@ -5,9 +5,17 @@ import "dart:async";
 import "dart:io";
 import 'package:cloud_firestore/cloud_firestore.dart';
 import "tracker.dart";
+import "dart:math";
 
 class Simulator {
+  Random _rng = new Random();
+  double noiseLat = 0;
+  double noiseLng = 0;
   bool running = false;
+
+  double nextNoise() {
+    return (_rng.nextDouble() - 0.5) * 0.001;
+  }
 
   void stop() {
     running = false;
@@ -15,8 +23,10 @@ class Simulator {
 
   Future<bool> start(Tracker tracker, Map coursePath) async {
 
+    await Future.delayed(Duration(seconds: 5), () => false); // wait to start
+
     if(true) { // sim the route at a certain pace
-      double pace = 2; // min/mile
+      double pace = 4.5; // min/mile
       double skip = 0;
       List points = coursePath["points"];
       print("SIM0: ${points[0]}");
@@ -41,14 +51,19 @@ class Simulator {
       }
       running=true;
       int downsample=1;
+      var rng = new Random();
+      double noiseLat = nextNoise();
+      double noiseLon = nextNoise();
       for (idx = idx+downsample; idx < points.length; idx+=downsample) {
         double epoch = (coursePath["distances"][idx] * pace * 60) + startTime;
         double dt = epoch - DateTime.now().millisecondsSinceEpoch/1000.0;
-        print("SIM POINT: $idx, $dt");
+        //print("SIM POINT: $idx, $dt");
         if(dt > 0) {
           await Future.delayed(Duration(milliseconds: (dt * 1000).toInt()), () => false);
         }
-        LatLng latLng = LatLng(points[idx]["lat"], points[idx]["lon"]);
+        noiseLat = 0.9*noiseLat + 0.1*nextNoise();
+        noiseLon = 0.9*noiseLon + 0.1*nextNoise();
+        LatLng latLng = LatLng(points[idx]["lat"]+noiseLat, points[idx]["lon"]+noiseLon);
         Location location = Location(latLng: latLng, epoch: epoch, accuracy: 10);
         tracker.addPoint(location);
         if (!running) {
