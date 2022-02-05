@@ -205,14 +205,20 @@ class Tracker {
       print("TIMING POINTS=$timingPoints");
       print(coursePath);
       print("Length point 0=${coursePath!["points"].length}");
+
+      // insert the directions between each point
       List points = [];
       for (int idx = 0; idx < coursePath!["points"].length; idx++) {
         Map cp = coursePath!["points"][idx];
         if (cp.containsKey("directions")) {
           for (int idx2 = 0; idx2 < cp["directions"].length; idx2++) {
-            points.add(cp["directions"][idx2]);
+            var cp2 = cp["directions"][idx2];
+            points.add(cp2);
+            //print("  cp2[${idx2}]: ${cp2['lat']} ${cp2['lon']}");
           }
+          cp.remove("directions");
         }
+        //print("cp[${idx}]: ${cp['lat']} ${cp['lon']}");
         points.add(cp);
       }
       coursePath!["points"] = points;
