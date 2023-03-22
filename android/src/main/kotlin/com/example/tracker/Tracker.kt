@@ -120,7 +120,7 @@ public class Tracker : Service() {
                 ?.setPackage(null)
                 ?.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
 
-                val pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0)
+                val pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, PendingIntent.FLAG_IMMUTABLE)
 
         val channelId =
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
