@@ -134,6 +134,7 @@ class Tracker {
   }
 
   static Future<void> stopLocServices() async {
+    print("STOPPING LOC SERVICES");
     _channel.setMethodCallHandler(null);
     await _channel.invokeMethod('stop');
   }
@@ -146,11 +147,13 @@ class Tracker {
   List<int> times = [];
   /// Title of app as displayed in notification window
   String appTitle;
-  int id;
+  int pid, eid, uid; //participant id, event id, user id
   static StreamSubscription? subscriptionAccel, subscriptionGyro;
 
   Tracker({
-    required this.id,
+    required this.pid,
+    required this.eid,
+    required this.uid,
     required this.eventType,
     required this.appTitle,
     required this.deviceId,
@@ -470,6 +473,9 @@ class Tracker {
         "latM": (latLng.latitude * 1e6).toInt(),
         "lngM": (latLng.longitude * 1e6).toInt(),
         "distK": (distance*1e3).toInt(),
+        "loc" : GeoPoint(latLng.latitude, latLng.longitude),
+        "pid" : pid,
+        "eid" : eid,
       };
       if(_pntsCollection != null) {
         _pntsCollection!.add(latLng_).then((ref) {}, onError: (e) {
@@ -619,14 +625,21 @@ class Tracker {
     }
   }
 
+  bool alreadyCalledOnPathCompleted = false;
   void advanceToNextSegment() {
     stateNearLastPointOfSegment = false;
     if(segIdx+1 < segments.length) {
       segIdx += 1;
       posIdx = -1;
+      alreadyCalledOnPathCompleted = false;
     } else {
-      if(onPathCompleted != null) {
-        onPathCompleted!();
+      if(onPathCompleted != null && !alreadyCalledOnPathCompleted) {
+        alreadyCalledOnPathCompleted = true;
+        try {
+          onPathCompleted!();
+        } catch(e) {
+          print("onPathCompleted failed: $e");
+        }
       }
     }
   }
@@ -742,7 +755,7 @@ class Tracker {
     print("HISTORY: ENTRY");
     if(_pntsCollection == null) { return; }
     try {
-      QuerySnapshot snapshot = await _pntsCollection!.orderBy('epoch').get();
+      QuerySnapshot snapshot = await _pntsCollection!.where("pid",isEqualTo: pid).orderBy('epoch').get();
       snapshot.docs.forEach((QueryDocumentSnapshot s) {
         Map p = s.data() as Map;
         print("HISTORY: $p");
