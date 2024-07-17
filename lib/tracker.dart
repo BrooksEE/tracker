@@ -881,7 +881,8 @@ class RaceData {
   }) async {
     Directory appDocDir = await getApplicationDocumentsDirectory();
     String? url = race.url_app_data;
-    if (url == null) {
+    print("DOWNLOAD URL: ${url}");
+    if (url == null || url.isEmpty) {
       raceData = null;
     } else {
       List p = url.split("/");
