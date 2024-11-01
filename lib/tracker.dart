@@ -41,7 +41,16 @@ double THRESHOLD_OFF_COURSE = 70;
 double THRESHOLD_MATCH_LOWER_BOUND = 100;
 double THRESHOLD_MATCH_UPPER_BOUND = 200;
 
+Color hexToColor(double opacity, String hexString) {
+  assert(0 <= opacity && opacity <= 1, 'Opacity must be between 0 and 1');
+  assert(hexString.length == 7 && hexString.startsWith('#'), 'Hex string must be 7 characters, starting with "#"');
 
+  // Convert opacity to a 2-digit hex value
+  final alpha = (opacity * 255).toInt().toRadixString(16).padLeft(2, '0');
+  final hexColor = hexString.replaceFirst('#', '');
+
+  return Color(int.parse(alpha + hexColor, radix: 16));
+}
 class Location {
   late LatLng latLng;
   late double epoch;
@@ -227,9 +236,18 @@ class Tracker {
       coursePath!["points"] = points;
       print("Length point 1=${coursePath!["points"].length}");
 
+      late Color courseColor;
+      try {
+        if(coursePath != null) {
+          courseColor = hexToColor(coursePath?["lineOptions"]["strokeOpacity"], coursePath?["lineOptions"]["strokeColor"]);
+        }
+      } catch(e) {
+        courseColor = Color.fromARGB(128, 255, 90, 90);
+      }
+
       course = Polyline(
         polylineId: PolylineId("1"),
-        color: Color.fromARGB(128, 255, 90, 90),
+        color: courseColor,
         width: 10,
         zIndex: 1,
         points: toPoints(coursePath!),
@@ -892,7 +910,11 @@ class RaceData {
 
       int retry=10;
       while(!await file.exists() || !await shaCheck(file)) {
-        await RPC().fileDownload(url, fname);
+        try {
+          await RPC().fileDownload(url, fname);
+        } catch(e) {
+          print("fileDownload url=${url} retry=${retry} error=${e}");
+        }
         retry--;
         if(retry < 0) {
           return;
