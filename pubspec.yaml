@@ -11,7 +11,7 @@ environment:
 dependencies:
   convert: ^3.0.1
   crypto: ^3.0.1
-  flutter_archive: ^5.0.0
+  flutter_archive: ^6.0.3
   google_maps_flutter: ^2.0.6
   permission_handler: ^10.2.0
   path: ^1.8.2
