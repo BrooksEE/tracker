@@ -91,6 +91,7 @@ class Tracker {
   List<Watcher> watchers = [];
   double prevDist = 0;
   String deviceId;
+  bool _recording = false; // used only for eventType = RUN (not RACE)
 
   int segIdx = 0;
   int posIdx = 0; // index in course of current position.
@@ -113,6 +114,9 @@ class Tracker {
   Simulator? simulator;
   String? fireStorePointsPath, fireStoreImuPath;
   String? fireStoreStatusPath;
+
+  set recording(bool val) => _recording = val;
+  bool get recording => _recording;
 
   static const MethodChannel _channel = const MethodChannel('tracker');
 
@@ -464,6 +468,7 @@ class Tracker {
     times.add(DateTime.now().millisecondsSinceEpoch);
     subscriptionAccel?.cancel();
     subscriptionGyro?.cancel();
+    _recording = false;
     if(sim) {
       simulator?.stop();
     } else {
@@ -483,18 +488,40 @@ class Tracker {
 
   void addPoint(Location location, {replay = false}) {
     LatLng latLng = location.latLng;
+    Map<String, dynamic> latLng_ = {
+      "accuracyK": (location.accuracy*1000).toInt(),
+      "dev_id": deviceId,
+      "epoch": location.epoch,
+      "latM": (latLng.latitude * 1e6).toInt(),
+      "lngM": (latLng.longitude * 1e6).toInt(),
+      "distK": (distance*1e3).toInt(),
+      "loc" : GeoPoint(latLng.latitude, latLng.longitude),
+      "pid" : pid,
+      "eid" : eid,
+    };
+
+    if(coursePath == null) {
+      lastPos = latLng;
+      if(onLocation != null) {
+        onLocation!(location);
+      }
+      if(recording) {
+        if(_pntsCollection != null) {
+          _pntsCollection!.add(latLng_).then((ref) {}, onError: (e) {
+            print("exception writing point: ${e}");
+          });
+        }
+        if(_locRef != null && latLng_["epoch"] - _lastPointsEpoch >= 5) {
+          _locRef!.set({"location": latLng_}, SetOptions(merge: true)).then((ref) {}, onError: (e) {
+            print("exception writing location: ${e}");
+          });
+          _lastPointsEpoch = latLng_["epoch"];
+        }
+      }
+      return;
+    }
+  
     if(!replay && trackThisPoint(latLng)) {
-      Map<String, dynamic> latLng_ = {
-        "accuracyK": (location.accuracy*1000).toInt(),
-        "dev_id": deviceId,
-        "epoch": location.epoch,
-        "latM": (latLng.latitude * 1e6).toInt(),
-        "lngM": (latLng.longitude * 1e6).toInt(),
-        "distK": (distance*1e3).toInt(),
-        "loc" : GeoPoint(latLng.latitude, latLng.longitude),
-        "pid" : pid,
-        "eid" : eid,
-      };
       if(_pntsCollection != null) {
         _pntsCollection!.add(latLng_).then((ref) {}, onError: (e) {
           print("exception writing point: ${e}");
