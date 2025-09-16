@@ -309,11 +309,14 @@ class Tracker {
     distance = 0;
     myLine = Polyline(
       polylineId: PolylineId("0"),
-      color: Color.fromARGB(192, 128, 128, 255),
-      width: 4,
+      color: coursePath == null ? Colors.red : Color.fromARGB(192, 128, 128, 255),
+      width: coursePath == null ? 8 : 4,
       points: [],
       zIndex: 2,
     );
+    if(coursePath == null) {
+      polylines.add(myLine);
+    }
 
     _lastPointsEpoch = 0;
     if(fireStorePointsPath != null) {
@@ -373,15 +376,16 @@ class Tracker {
     return points;
   }
 
-  Future<void> start() async {
+  Future<void> start({Map? simCoursePath}) async {
     times.add(DateTime.now().millisecondsSinceEpoch);
     print("SIM: ${sim}");
     if(sim) {
-      if(coursePath != null) {
+      if(coursePath != null || simCoursePath != null) {
         simulator = Simulator();
-        simulator?.start(this, coursePath!);
+        simulator?.start(this, simCoursePath != null ? simCoursePath! : coursePath!);
       }
     } else {
+      print("NOT SIM:");
 //      await _start();
 
       PermissionStatus status = await Permission.locationWhenInUse.request();
@@ -506,6 +510,7 @@ class Tracker {
         onLocation!(location);
       }
       if(recording) {
+        myLine.points.add(latLng);
         if(_pntsCollection != null) {
           _pntsCollection!.add(latLng_).then((ref) {}, onError: (e) {
             print("exception writing point: ${e}");

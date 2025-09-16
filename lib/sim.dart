@@ -26,7 +26,7 @@ class Simulator {
     await Future.delayed(Duration(seconds: 5), () => false); // wait to start
 
     if(true) { // sim the route at a certain pace
-      double pace = 4.5; // min/mile
+      double pace = 1.05; // min/mile
       double skip = 0;
       List points = coursePath["points"];
       print("SIM0: ${points[0]}");
