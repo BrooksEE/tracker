@@ -41,7 +41,9 @@ import java.util.HashMap
 import android.R.attr.data
 
 import org.json.JSONObject
-
+import android.os.PowerManager
+import android.provider.Settings
+import android.net.Uri
 
 
 
@@ -112,32 +114,46 @@ public class Tracker : Service() {
 
     override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
         Log.i("BLE", "onStartCommand")
-        data = intent.getParcelableExtra("messenger");
-        Toast.makeText(this, "service starting", Toast.LENGTH_SHORT).show()
-        val notificationIntent = //Intent(this, FlutterActivity::class.java)
-        this.packageManager
-                .getLaunchIntentForPackage(this.packageName)
-                ?.setPackage(null)
-                ?.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+        data = intent.getParcelableExtra("messenger")
+        Toast.makeText(this, "Location Tracking Starting", Toast.LENGTH_SHORT).show()
 
-                val pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, PendingIntent.FLAG_IMMUTABLE)
+        // 🔋 Check / request battery optimization exemption
+        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+            val batteryIntent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                data = Uri.parse("package:$packageName")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(batteryIntent)
+        }
+
+        val notificationIntent = packageManager
+            .getLaunchIntentForPackage(packageName)
+            ?.setPackage(null)
+            ?.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            0,
+            notificationIntent,
+            PendingIntent.FLAG_IMMUTABLE
+        )
 
         val channelId =
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    createNotificationChannel("tracker", "Tracker")
-                } else {
-                    // If earlier version channel ID is not used
-                    // https://developer.android.com/reference/android/support/v4/app/NotificationCompat.Builder.html#NotificationCompat.Builder(android.content.Context)
-                    ""
-                }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                createNotificationChannel("tracker", "Tracker")
+            } else {
+                ""
+            }
 
-        val rId : Int? = this.resources.getIdentifier("notification", "drawable", this.packageName)
+        val rId: Int? = resources.getIdentifier("notification", "drawable", packageName)
         val notification = Notification.Builder(this, channelId)
-                .setContentTitle(intent.getStringExtra("title") ?: "TITLE")
-                .setContentText(intent.getStringExtra("text") ?: "text")
-                .setSmallIcon(rId ?: R.drawable.ic_fg)
-                .setContentIntent(pendingIntent)
-                .build()
+            .setContentTitle(intent.getStringExtra("title") ?: "TITLE")
+            .setContentText(intent.getStringExtra("text") ?: "text")
+            .setSmallIcon(rId ?: R.drawable.ic_fg)
+            .setContentIntent(pendingIntent)
+            .build()
+
         startForeground(1, notification)
 
         return START_NOT_STICKY
