@@ -51,6 +51,7 @@ Color hexToColor(double opacity, String hexString) {
 
   return Color(int.parse(alpha + hexColor, radix: 16));
 }
+
 class Location {
   late LatLng latLng;
   late double epoch;
@@ -70,10 +71,10 @@ class Location {
 enum EVENT_TYPE {
   /// Races cannot be paused. There is one start and one stop time
   RACE,
+
   /// Runs can be paused and have a list of start/stop times
   RUN,
 }
-
 
 class Tracker {
   static const int EARTH_RADIUS_METERS = 6371000;
@@ -122,25 +123,25 @@ class Tracker {
 
   static Future<void> startLocServices({required String title, required String text, required Function cb}) async {
     _channel.setMethodCallHandler((MethodCall call) async {
-        if(call.method == "onLocation") {
-          Location loc;
-          Map locMap;
-          try {
-            if(call.arguments is String) {
-              locMap = jsonDecode(call.arguments);
-            } else if(call.arguments is Map) {
-              locMap = Map<dynamic, dynamic>.from(call.arguments);
-            } else {
-              print("Unknown loc type");
-              return;
-            }
-            loc = Location.fromJson(locMap);
-          } catch(e) {
-            print(e);
+      if (call.method == "onLocation") {
+        Location loc;
+        Map locMap;
+        try {
+          if (call.arguments is String) {
+            locMap = jsonDecode(call.arguments);
+          } else if (call.arguments is Map) {
+            locMap = Map<dynamic, dynamic>.from(call.arguments);
+          } else {
+            print("Unknown loc type");
             return;
           }
-          cb(loc);
+          loc = Location.fromJson(locMap);
+        } catch (e) {
+          print(e);
+          return;
         }
+        cb(loc);
+      }
     });
     var r = await _channel.invokeMethod('start', {"title": title, "text": text});
     print("START $r");
@@ -156,8 +157,10 @@ class Tracker {
   bool sim;
   EVENT_TYPE eventType;
   int maxCourseTimeHours;
+
   /// list of event start/stop times as milliseoncds since epoch
   List<int> times = [];
+
   /// Title of app as displayed in notification window
   String appTitle;
   int pid, eid, uid; //participant id, event id, user id
@@ -174,13 +177,13 @@ class Tracker {
     this.fireStorePointsPath: null,
     this.fireStoreStatusPath: null,
     this.fireStoreImuPath: null,
-    this.sim          : false,
+    this.sim: false,
     this.maxCourseTimeHours: 10,
-    this.coursePath   : null,
-    timingPoints : null,
-    this.onOffCourse  : null,
-    this.onMatchedNewLocation : null,
-    this.onBackOnCourse : null,
+    this.coursePath: null,
+    timingPoints: null,
+    this.onOffCourse: null,
+    this.onMatchedNewLocation: null,
+    this.onBackOnCourse: null,
     this.onLocation: null,
     this.onPathUpdate: null,
     this.onPathCompleted: null,
@@ -200,7 +203,7 @@ class Tracker {
     prevSeconds = 0;
     offCourseWarning = false;
 
-    if(timingPoints != null) {
+    if (timingPoints != null) {
       for (var idx = 0; idx < timingPoints.length; idx++) {
         Map tp = timingPoints[idx];
         for (var idx2 = 0; idx2 < tp["devices"].length; idx2++) {
@@ -217,7 +220,7 @@ class Tracker {
 
     polylines = Set<Polyline>();
 
-    if(coursePath != null) {
+    if (coursePath != null) {
       print("TIMING POINTS=$timingPoints");
       print(coursePath);
       print("Length point 0=${coursePath!["points"].length}");
@@ -242,10 +245,10 @@ class Tracker {
 
       late Color courseColor;
       try {
-        if(coursePath != null) {
+        if (coursePath != null) {
           courseColor = hexToColor(coursePath?["lineOptions"]["strokeOpacity"], coursePath?["lineOptions"]["strokeColor"]);
         }
-      } catch(e) {
+      } catch (e) {
         courseColor = Color.fromARGB(128, 255, 90, 90);
       }
 
@@ -266,17 +269,13 @@ class Tracker {
       for (var idx = 0; idx < points.length - 1; idx++) {
         points2.add(points[idx]); // insert current point
         // calc distance between current point and next point
-            double dx = distanceMeters(LatLng(points[idx]["lat"], points[idx]["lon"]),
-            LatLng(points[idx + 1]["lat"], points[idx + 1]["lon"]));
+        double dx = distanceMeters(LatLng(points[idx]["lat"], points[idx]["lon"]), LatLng(points[idx + 1]["lat"], points[idx + 1]["lon"]));
         // calc how many points need inserted between to ensure the min distance between points is met
         int N = (dx / min_dx_meters).floor();
         for (var idx2 = 0; idx2 < N; idx2++) {
           Map p0 = points[idx];
           Map p1 = points[idx + 1];
-          Map p = {
-            "lat": p0["lat"] + (p1["lat"] - p0["lat"]) * (idx2 + 1) / (N + 1),
-            "lon": p0["lon"] + (p1["lon"] - p0["lon"]) * (idx2 + 1) / (N + 1)
-          };
+          Map p = {"lat": p0["lat"] + (p1["lat"] - p0["lat"]) * (idx2 + 1) / (N + 1), "lon": p0["lon"] + (p1["lon"] - p0["lon"]) * (idx2 + 1) / (N + 1)};
           points2.add(p);
         }
       }
@@ -314,27 +313,27 @@ class Tracker {
       points: [],
       zIndex: 2,
     );
-    if(coursePath == null) {
+    if (coursePath == null) {
       polylines.add(myLine);
     }
 
     _lastPointsEpoch = 0;
-    if(fireStorePointsPath != null) {
+    if (fireStorePointsPath != null) {
       _pntsCollection = FirebaseFirestore.instance.collection(fireStorePointsPath!);
     } else {
       _pntsCollection = null;
     }
-    if(fireStoreStatusPath != null) {
-      _locRef  = FirebaseFirestore.instance.doc(fireStoreStatusPath!);
+    if (fireStoreStatusPath != null) {
+      _locRef = FirebaseFirestore.instance.doc(fireStoreStatusPath!);
     } else {
       _locRef = null;
     }
-    if(false) {
+    if (false) {
       subscriptionGyro?.cancel();
       subscriptionGyro = null;
       subscriptionAccel?.cancel();
       subscriptionAccel = null;
-      if(fireStoreImuPath != null) {
+      if (fireStoreImuPath != null) {
         /*
         _imuCollection = FirebaseFirestore.instance.collection(fireStoreImuPath);
         subscriptionAccel = accelerometerEvents.listen((AccelerometerEvent event) {
@@ -379,8 +378,8 @@ class Tracker {
   Future<void> start({Map? simCoursePath}) async {
     times.add(DateTime.now().millisecondsSinceEpoch);
     print("SIM: ${sim}");
-    if(sim) {
-      if(coursePath != null || simCoursePath != null) {
+    if (sim) {
+      if (coursePath != null || simCoursePath != null) {
         simulator = Simulator();
         simulator?.start(this, simCoursePath != null ? simCoursePath! : coursePath!);
       }
@@ -391,12 +390,12 @@ class Tracker {
       PermissionStatus status = await Permission.locationWhenInUse.request();
       if (status.isGranted) {
         await startLocServices(
-          title: appTitle,
-          text: "Tracking your race",
-          cb: (Location loc) {
-            print("${loc}");
-            addPoint(loc);
-          });
+            title: appTitle,
+            text: "Tracking your race",
+            cb: (Location loc) {
+              print("${loc}");
+              addPoint(loc);
+            });
       } else {
         throw Exception("PERMISSION_DENIED");
       }
@@ -473,7 +472,7 @@ class Tracker {
     subscriptionAccel?.cancel();
     subscriptionGyro?.cancel();
     _recording = false;
-    if(sim) {
+    if (sim) {
       simulator?.stop();
     } else {
       await stopLocServices();
@@ -483,7 +482,7 @@ class Tracker {
   bool trackThisPoint(LatLng latLng) {
     List p = findClosestPoint(completeCourse["latlngs"], latLng);
     double dist = p[1];
-    if(dist < 200) {
+    if (dist < 200) {
       return true;
     } else {
       return false;
@@ -493,30 +492,30 @@ class Tracker {
   void addPoint(Location location, {replay = false}) {
     LatLng latLng = location.latLng;
     Map<String, dynamic> latLng_ = {
-      "accuracyK": (location.accuracy*1000).toInt(),
+      "accuracyK": (location.accuracy * 1000).toInt(),
       "dev_id": deviceId,
       "epoch": location.epoch,
       "latM": (latLng.latitude * 1e6).toInt(),
       "lngM": (latLng.longitude * 1e6).toInt(),
-      "distK": (distance*1e3).toInt(),
-      "loc" : GeoPoint(latLng.latitude, latLng.longitude),
-      "pid" : pid,
-      "eid" : eid,
+      "distK": (distance * 1e3).toInt(),
+      "loc": GeoPoint(latLng.latitude, latLng.longitude),
+      "pid": pid,
+      "eid": eid,
     };
 
-    if(coursePath == null) {
+    if (coursePath == null) {
       lastPos = latLng;
-      if(onLocation != null) {
+      if (onLocation != null) {
         onLocation!(location);
       }
-      if(recording) {
+      if (recording) {
         myLine.points.add(latLng);
-        if(_pntsCollection != null) {
+        if (_pntsCollection != null) {
           _pntsCollection!.add(latLng_).then((ref) {}, onError: (e) {
             print("exception writing point: ${e}");
           });
         }
-        if(_locRef != null && latLng_["epoch"] - _lastPointsEpoch >= 5) {
+        if (_locRef != null && latLng_["epoch"] - _lastPointsEpoch >= 5) {
           _locRef!.set({"location": latLng_}, SetOptions(merge: true)).then((ref) {}, onError: (e) {
             print("exception writing location: ${e}");
           });
@@ -525,14 +524,14 @@ class Tracker {
       }
       return;
     }
-  
-    if(!replay && trackThisPoint(latLng)) {
-      if(_pntsCollection != null) {
+
+    if (!replay && trackThisPoint(latLng)) {
+      if (_pntsCollection != null) {
         _pntsCollection!.add(latLng_).then((ref) {}, onError: (e) {
           print("exception writing point: ${e}");
         });
       }
-      if(_locRef != null && latLng_["epoch"] - _lastPointsEpoch >= 5) {
+      if (_locRef != null && latLng_["epoch"] - _lastPointsEpoch >= 5) {
         _locRef!.set({"location": latLng_}, SetOptions(merge: true)).then((ref) {}, onError: (e) {
           print("exception writing location: ${e}");
         });
@@ -540,7 +539,7 @@ class Tracker {
       }
     }
     myLine.points.add(latLng);
-    if(onLocation != null) {
+    if (onLocation != null) {
       onLocation!(location);
     }
 
@@ -549,11 +548,11 @@ class Tracker {
       return; // don't use a noisy point
     }
 
-    if(segments.length == 0) {
-      if(lastPos != null) {
+    if (segments.length == 0) {
+      if (lastPos != null) {
         distance += distanceMeters(latLng, lastPos!);
       }
-      if(onPathUpdate != null) {
+      if (onPathUpdate != null) {
         onPathUpdate!(location, distance, null, replay, null);
       }
       lastPos = latLng;
@@ -570,10 +569,8 @@ class Tracker {
     double THRESHOLD_IN_BUBBLE = 40;
     double THRESHOLD_OUT_OF_BUBBLE = 2 * THRESHOLD_IN_BUBBLE;
     if (seg["latlngs"].length > 0 && segIdx < segments.length - 1) {
-      double distToLastPointInSegment =
-      distanceMeters(latLng, seg["latlngs"][seg["latlngs"].length - 1]);
-      print(
-          "distToLastPointInSegment=$distToLastPointInSegment  statstateNearLastPointOfSegment=$stateNearLastPointOfSegment");
+      double distToLastPointInSegment = distanceMeters(latLng, seg["latlngs"][seg["latlngs"].length - 1]);
+      print("distToLastPointInSegment=$distToLastPointInSegment  statstateNearLastPointOfSegment=$stateNearLastPointOfSegment");
       if (stateNearLastPointOfSegment) {
         if (distToLastPointInSegment > THRESHOLD_OUT_OF_BUBBLE) {
           List y = findClosestPoint(segments[segIdx + 1]["latlngs"], latLng);
@@ -595,48 +592,48 @@ class Tracker {
     if (dist > THRESHOLD_OFF_COURSE) {
       offCourse++;
       print("OFF COURSE COUNT $offCourse  WATCHERS=${watchers.length}");
-      if(offCourse < OFF_COURSE_COUNT_THRESHOLD) {
+      if (offCourse < OFF_COURSE_COUNT_THRESHOLD) {
         print("Waiting for more off course points");
-      } else if(offCourse == OFF_COURSE_COUNT_THRESHOLD || watchers.length == 0) {
+      } else if (offCourse == OFF_COURSE_COUNT_THRESHOLD || watchers.length == 0) {
         // first look forward for potential matching points
-        for(int sIdx = segIdx; sIdx<segments.length; sIdx++) {
+        for (int sIdx = segIdx; sIdx < segments.length; sIdx++) {
           List x = findClosestPoint(segments[sIdx]["latlngs"], latLng, 0);
           double dist2 = x[1];
           int pIdx = x[0];
-          if(dist2 <= THRESHOLD_OFF_COURSE) {
+          if (dist2 <= THRESHOLD_OFF_COURSE) {
             watchers.add(Watcher(sIdx, pIdx, segments[sIdx]));
           } else {
             print("NO WATCHER for SEG=${sIdx}  dist2=${dist2}");
           }
         }
         // second look backward for potential matching points
-        for(int sIdx = segIdx; sIdx>= 0; sIdx--) {
+        for (int sIdx = segIdx; sIdx >= 0; sIdx--) {
           List x = findClosestPoint(segments[sIdx]["latlngs"], latLng, 0);
           double dist2 = x[1];
           int pIdx = x[0];
-          if(dist2 <= THRESHOLD_OFF_COURSE) {
+          if (dist2 <= THRESHOLD_OFF_COURSE) {
             watchers.add(Watcher(sIdx, pIdx, segments[sIdx]));
           } else {
             print("NO WATCHER for SEG=${sIdx}  dist2=${dist2}");
           }
         }
-        if(watchers.length == 0) {
+        if (watchers.length == 0) {
           print("  REPLAY=${replay} ofoffCourseWarning=${offCourseWarning}");
-          if(!replay && !offCourseWarning) {
+          if (!replay && !offCourseWarning) {
             offCourseWarning = true;
-            if(onOffCourse != null) {
+            if (onOffCourse != null) {
               onOffCourse!();
             }
           }
         }
       } else {
-        for(int idx=0; idx<watchers.length; idx++) {
+        for (int idx = 0; idx < watchers.length; idx++) {
           Watcher watcher = watchers[idx];
           int pIdx = watcher.addPoint(latLng);
-          if(pIdx >= 0) {
+          if (pIdx >= 0) {
             double newDist = (segments[watcher.segIdx]["distances"][pIdx] * 10).round() / 10.0;
-            if(!replay) {
-              if(onMatchedNewLocation != null) {
+            if (!replay) {
+              if (onMatchedNewLocation != null) {
                 onMatchedNewLocation!(newDist);
               }
             }
@@ -650,10 +647,10 @@ class Tracker {
     }
     watchers.clear();
     offCourse = 0;
-    if(offCourseWarning) {
+    if (offCourseWarning) {
       offCourseWarning = false;
-      if(!replay) {
-        if(onBackOnCourse != null) {
+      if (!replay) {
+        if (onBackOnCourse != null) {
           onBackOnCourse!(distance);
         }
       }
@@ -664,8 +661,8 @@ class Tracker {
       distance = seg["distances"][posIdx];
       myLineFixed.points.add(seg["latlngs"][posIdx]);
       Map p = seg["points"][posIdx];
-      if(onPathUpdate != null && distances != null) {
-        onPathUpdate!(location, distance, p, replay, distances![distances!.length-1]);
+      if (onPathUpdate != null && distances != null) {
+        onPathUpdate!(location, distance, p, replay, distances![distances!.length - 1]);
       }
     }
     print("posIdx=$posIdx newPosIdx=$newPosIdx");
@@ -678,16 +675,16 @@ class Tracker {
   bool alreadyCalledOnPathCompleted = false;
   void advanceToNextSegment() {
     stateNearLastPointOfSegment = false;
-    if(segIdx+1 < segments.length) {
+    if (segIdx + 1 < segments.length) {
       segIdx += 1;
       posIdx = -1;
       alreadyCalledOnPathCompleted = false;
     } else {
-      if(onPathCompleted != null && !alreadyCalledOnPathCompleted) {
+      if (onPathCompleted != null && !alreadyCalledOnPathCompleted) {
         alreadyCalledOnPathCompleted = true;
         try {
           onPathCompleted!();
-        } catch(e) {
+        } catch (e) {
           print("onPathCompleted failed: $e");
         }
       }
@@ -695,7 +692,7 @@ class Tracker {
   }
 
   void segmentCourse() {
-    if(coursePath == null || distances == null) {
+    if (coursePath == null || distances == null) {
       return;
     }
     print("COURSE POINTS LENGTH: ${coursePath!['points'].length}");
@@ -754,8 +751,7 @@ class Tracker {
     //print(segments[1]["distances"]);
   }
 
-  static List findClosestPoint(List<LatLng> points, LatLng p,
-      [int starting_pos = 0]) {
+  static List findClosestPoint(List<LatLng> points, LatLng p, [int starting_pos = 0]) {
     double min = double.maxFinite;
     int min_idx = -1;
     for (int idx = starting_pos; idx < points.length; idx++) {
@@ -778,20 +774,20 @@ class Tracker {
     prevSeconds = 0;
     myLineFixed.points.clear();
     //myLine.points.clear();
-    int sIdx = 0, pIdx=0;
+    int sIdx = 0, pIdx = 0;
     // now replay the points until distance == dist
-    while(distance < dist) {
-      while(distance < dist) {
+    while (distance < dist) {
+      while (distance < dist) {
         LatLng latLng = segments[sIdx]["latlngs"][pIdx];
         Location location = Location(latLng: latLng, epoch: 0, accuracy: 0);
         addPoint(location, replay: true);
         pIdx++;
-        if(pIdx >= segments[sIdx]["points"].length) {
+        if (pIdx >= segments[sIdx]["points"].length) {
           sIdx++;
           pIdx = 0;
         }
       }
-      if(segIdx >= segments.length) {
+      if (segIdx >= segments.length) {
         break;
       }
     }
@@ -803,17 +799,19 @@ class Tracker {
 
   Future<void> replayHistory() async {
     print("HISTORY: ENTRY");
-    if(_pntsCollection == null) { return; }
+    if (_pntsCollection == null) {
+      return;
+    }
     try {
-      QuerySnapshot snapshot = await _pntsCollection!.where("pid",isEqualTo: pid).orderBy('epoch').get();
+      QuerySnapshot snapshot = await _pntsCollection!.where("pid", isEqualTo: pid).orderBy('epoch').get();
       snapshot.docs.forEach((QueryDocumentSnapshot s) {
         Map p = s.data() as Map;
         print("HISTORY: $p");
         LatLng latLng = LatLng(p["latM"] / 1e6, p["lngM"] / 1e6);
-        Location location = Location(latLng: latLng, epoch: p["epoch"]/1.0, accuracy: p["accuracyK"] / 1000.0);
+        Location location = Location(latLng: latLng, epoch: p["epoch"] / 1.0, accuracy: p["accuracyK"] / 1000.0);
         addPoint(location, replay: true);
       });
-    } catch(e, stacktrace) {
+    } catch (e, stacktrace) {
       print("REPLAY HISTORY ERR: ${e.toString()}");
       print(stacktrace);
     }
@@ -824,8 +822,7 @@ class Tracker {
     List<double> d = [0.0];
     double cum = 0;
     for (int idx = 1; idx < points.length; idx++) {
-      cum += distanceMeters(points[idx], points[idx - 1]) /
-          ((units == UNITS.IMPERIAL) ? METERS_PER_MILE : METERS_PER_KM);
+      cum += distanceMeters(points[idx], points[idx - 1]) / ((units == UNITS.IMPERIAL) ? METERS_PER_MILE : METERS_PER_KM);
       d.add(cum);
     }
     return d;
@@ -836,12 +833,8 @@ class Tracker {
     double lon1 = p1.longitude / 180.0 * math.pi;
     double lat2 = p2.latitude / 180.0 * math.pi;
     double lon2 = p2.longitude / 180.0 * math.pi;
-    return math.acos(math.sin(lat1) * math.sin(lat2) +
-        math.cos(lat1) * math.cos(lat2) * math.cos(lon2 - lon1)) *
-        EARTH_RADIUS_METERS;
+    return math.acos(math.sin(lat1) * math.sin(lat2) + math.cos(lat1) * math.cos(lat2) * math.cos(lon2 - lon1)) * EARTH_RADIUS_METERS;
   }
-
-
 }
 
 class Watcher {
@@ -858,29 +851,29 @@ class Watcher {
 
   int addPoint(LatLng loc) {
     // returns -1 if still watching. otherwise returns posIdx at the point of matching. throws a WatcherDoesNotMatch if not a match.
-    if(noMatch) {
+    if (noMatch) {
       return -1;
     }
     List x = Tracker.findClosestPoint(seg["latlngs"], loc, posIdx);
     double dist = x[1];
     int newPosIdx = x[0];
-    if(dist > THRESHOLD_OFF_COURSE) {
+    if (dist > THRESHOLD_OFF_COURSE) {
       print("  NO MATCHED DUE TO OFF SEGMENT IN SEG ${segIdx} at ${posIdx}");
       noMatch = true;
       return -1;
     }
     while (posIdx < newPosIdx) {
       posIdx++;
-      if(posIdx >= seg["latlngs"].length) {
+      if (posIdx >= seg["latlngs"].length) {
         noMatch = true;
         return -1;
       }
-      accum += Tracker.distanceMeters(seg["latlngs"][posIdx-1], seg["latlngs"][posIdx]);
-      if(accum > THRESHOLD_MATCH_LOWER_BOUND && accum < THRESHOLD_MATCH_UPPER_BOUND) {
+      accum += Tracker.distanceMeters(seg["latlngs"][posIdx - 1], seg["latlngs"][posIdx]);
+      if (accum > THRESHOLD_MATCH_LOWER_BOUND && accum < THRESHOLD_MATCH_UPPER_BOUND) {
         print("  MATCHED NEW LOCATION IN SEG ${segIdx} at ${posIdx}");
         return posIdx;
       }
-      if(accum > THRESHOLD_MATCH_UPPER_BOUND) {
+      if (accum > THRESHOLD_MATCH_UPPER_BOUND) {
         print("  NO MATCHED DUE TO BEYOND UPPER BOUND IN SEG ${segIdx} at ${posIdx}");
         noMatch = true;
         return -1;
@@ -898,8 +891,8 @@ Future<Uint8List?> getBytesFromAsset(String path, int width) async {
   return (await fi.image.toByteData(format: ui.ImageByteFormat.png))?.buffer.asUint8List();
 }
 
-
 String dt2elapsed(double dt) {
+  dt = dt.ceilToDouble(); // round up
   int h = (dt / 3600).floor();
   int m = ((dt - 3600 * h) / 60).floor();
   int s = (dt - 3600 * h - 60 * m).floor();
@@ -912,7 +905,6 @@ String pace2str(double dt) {
   return "${m < 10 ? "0" : ""}$m:${s < 10 ? "0" : ""}$s";
 }
 
-
 class RaceData {
   Map? raceData;
   Race race;
@@ -920,14 +912,14 @@ class RaceData {
   RaceData(this.race);
 
   dynamic? get(String key) {
-    if(raceData?[key] != null) {
+    if (raceData?[key] != null) {
       return raceData![key];
     }
     return null;
   }
 
   Future<void> sync({
-    Function? success=null,
+    Function? success = null,
   }) async {
     Directory appDocDir = await getApplicationDocumentsDirectory();
     String? url = race.url_app_data;
@@ -940,20 +932,20 @@ class RaceData {
       fname = fname.replaceAll(" ", "");
       File file = File(pth.join(appDocDir.path, fname));
 
-      int retry=10;
-      while(!await file.exists() || !await shaCheck(file)) {
+      int retry = 10;
+      while (!await file.exists() || !await shaCheck(file)) {
         try {
           await RPC().fileDownload(url, fname);
-        } catch(e) {
+        } catch (e) {
           print("fileDownload url=${url} retry=${retry} error=${e}");
         }
         retry--;
-        if(retry < 0) {
+        if (retry < 0) {
           return;
         }
       }
       final destinationDir = Directory(pth.join(appDocDir.path, "race_data"));
-      if(await destinationDir.exists()) {
+      if (await destinationDir.exists()) {
         await destinationDir.delete(recursive: true);
       }
       int t0 = DateTime.now().millisecondsSinceEpoch;
@@ -963,9 +955,9 @@ class RaceData {
         print(e);
       }
       int t1 = DateTime.now().millisecondsSinceEpoch;
-      print("Unzip took ${t1-t0} seconds.");
+      print("Unzip took ${t1 - t0} seconds.");
       File dataFile = File(pth.join(destinationDir.path, "data.json"));
-      if(! await dataFile.exists()) {
+      if (!await dataFile.exists()) {
         dlg.showError("Error: Race data file does not exist");
       } else {
         raceData = jsonDecode(await dataFile.readAsString());
@@ -974,12 +966,12 @@ class RaceData {
         print("PATHS: ${raceData!["paths"]}");
       }
     }
-    if(success != null) {
+    if (success != null) {
       success();
     }
   }
 
-  Future<bool> shaCheck(File file)  async {
+  Future<bool> shaCheck(File file) async {
     Digest fdigest = await sha1.bind(file.openRead()).first;
     String sha1sumA = hex.encode(fdigest.bytes);
     String sha1sumB = file.path.split("_").last.split(".")[0];
@@ -990,8 +982,7 @@ class RaceData {
 }
 
 Future<Map> get_mapp(int id, BuildContext context) async {
-  return await RPC()
-      .rpc("gmaps", "Mapp", "get", {"id": id}, "Fetching Map...");
+  return await RPC().rpc("gmaps", "Mapp", "get", {"id": id}, "Fetching Map...");
 }
 
 Future<Map> get_from_path(int id) async {
