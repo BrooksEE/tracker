@@ -5,17 +5,17 @@ author:
 homepage:
 
 environment:
-  sdk: ">=2.12.0 <3.0.0"
+  sdk: ^3.11.0
   flutter: ">=1.20.0"
 
 dependencies:
   convert: ^3.0.1
   crypto: ^3.0.1
   flutter_archive: ^6.0.3
-  google_maps_flutter: ^2.0.6
-  permission_handler: ^10.2.0
-  path: ^1.8.2
-  path_provider: ^2.0.5
+  google_maps_flutter: ^2.14.2
+  permission_handler: ^12.0.1
+  path: ^1.9.1
+  path_provider: ^2.1.5
   flutter:
     sdk: flutter
   flutter_web_plugins:
