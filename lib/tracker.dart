@@ -833,7 +833,9 @@ class Tracker {
     double lon1 = p1.longitude / 180.0 * math.pi;
     double lat2 = p2.latitude / 180.0 * math.pi;
     double lon2 = p2.longitude / 180.0 * math.pi;
-    return math.acos(math.sin(lat1) * math.sin(lat2) + math.cos(lat1) * math.cos(lat2) * math.cos(lon2 - lon1)) * EARTH_RADIUS_METERS;
+    // clamp to [-1, 1]: identical points can round to 1.0000000000000002, which makes acos return NaN
+    double c = math.sin(lat1) * math.sin(lat2) + math.cos(lat1) * math.cos(lat2) * math.cos(lon2 - lon1);
+    return math.acos(c.clamp(-1.0, 1.0)) * EARTH_RADIUS_METERS;
   }
 }
 
