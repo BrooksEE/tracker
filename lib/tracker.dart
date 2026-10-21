@@ -996,10 +996,18 @@ Future<Map> get_from_path(int id) async {
 /// race has no bundle (url_app_data unset).
 Future<Map?> pathFromId(Map? raceData, int pathId) async {
   Map? path = raceData?["paths"]?[pathId.toString()];
-  if (path != null) return path;
-  Map data = await get_from_path(pathId);
-  List paths = data["mapp"]["paths"];
-  return paths.firstWhere((p) => p["pk"] == pathId, orElse: () => null);
+  if (path == null) {
+    Map data = await get_from_path(pathId);
+    List paths = data["mapp"]["paths"];
+    path = paths.firstWhere((p) => p["pk"] == pathId, orElse: () => null);
+  }
+  // The map editor writes a whole-degree coordinate as an int, which
+  // LatLng and every `double lat = pt["lat"]` reject.
+  for (Map p in path?["points"] ?? []) {
+    p["lat"] = (p["lat"] as num).toDouble();
+    p["lon"] = (p["lon"] as num).toDouble();
+  }
+  return path;
 }
 
 List<LatLng> toPoints(Map path) {
