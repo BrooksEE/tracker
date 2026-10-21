@@ -991,6 +991,17 @@ Future<Map> get_from_path(int id) async {
   return await RPC().rpc("gmaps", "Mapp", "get_from_path", {"id": id}, "Fetching Map...");
 }
 
+/// The path with [pathId]: from the race's app-data bundle when it has it,
+/// otherwise over RPC. Null when neither has it. [raceData] is null when the
+/// race has no bundle (url_app_data unset).
+Future<Map?> pathFromId(Map? raceData, int pathId) async {
+  Map? path = raceData?["paths"]?[pathId.toString()];
+  if (path != null) return path;
+  Map data = await get_from_path(pathId);
+  List paths = data["mapp"]["paths"];
+  return paths.firstWhere((p) => p["pk"] == pathId, orElse: () => null);
+}
+
 List<LatLng> toPoints(Map path) {
   List<LatLng> points = <LatLng>[];
   for (int idx = 0; idx < path["points"].length; idx++) {
