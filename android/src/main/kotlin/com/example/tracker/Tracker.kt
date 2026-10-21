@@ -34,6 +34,7 @@ import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.OnCompleteListener
 import com.google.android.gms.tasks.Task
 import java.util.HashMap
@@ -80,14 +81,12 @@ public class Tracker : Service() {
             override fun onLocationResult(locationResult: LocationResult) {
                 super.onLocationResult(locationResult)
                 //Log.i("LOC", locationResult.toString())
-                onNewLocation(locationResult.getLastLocation())
+                locationResult.getLastLocation()?.let { onNewLocation(it) }
             }
         }
-        val locationRequest = LocationRequest.create()?.apply {
-                interval = 1000
-                fastestInterval = 500
-                priority = LocationRequest.PRIORITY_HIGH_ACCURACY
-        }
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000)
+                .setMinUpdateIntervalMillis(500)
+                .build()
 
         try {
             mFusedLocationClient?.getLastLocation()
@@ -98,7 +97,7 @@ public class Tracker : Service() {
                                 //onNewLocation(loc)
                                 mFusedLocationClient?.requestLocationUpdates(
                                         locationRequest,
-                                        mLocationCallback,
+                                        mLocationCallback!!,
                                         Looper.getMainLooper())
 
                             } else {
@@ -175,7 +174,7 @@ public class Tracker : Service() {
     }
 
     override fun onDestroy() {
-        mFusedLocationClient?.removeLocationUpdates(mLocationCallback)
+        mLocationCallback?.let { mFusedLocationClient?.removeLocationUpdates(it) }
         Toast.makeText(this, "service done", Toast.LENGTH_SHORT).show()
 //        if(result != null) {
 //            scanner?.stopScan(result)
