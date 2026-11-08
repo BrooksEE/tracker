@@ -58,10 +58,15 @@ class Location {
   late double accuracy;
 
   Location({required this.latLng, required this.epoch, required this.accuracy});
+  // Every field is read as num: Android sends this map as a JSONObject string,
+  // and JSONObject writes a whole-number value like an accuracy of 4.0 as "4",
+  // which jsonDecode returns as an int. Assigning that straight to a double
+  // threw, and the onLocation handler dropped the fix -- on Android 17 Pixels
+  // that was most screen-off fixes.
   Location.fromJson(Map<dynamic, dynamic> j) {
-    epoch = j['epoch'] / 1000.0;
-    accuracy = j['acc'];
-    latLng = LatLng(j['lat'], j['lon']);
+    epoch = (j['epoch'] as num) / 1000.0;
+    accuracy = (j['acc'] as num).toDouble();
+    latLng = LatLng((j['lat'] as num).toDouble(), (j['lon'] as num).toDouble());
   }
   String toString() {
     return "lat=${latLng.latitude} lon=${latLng.longitude} epoch=${epoch}";
@@ -137,7 +142,8 @@ class Tracker {
           }
           loc = Location.fromJson(locMap);
         } catch (e) {
-          print(e);
+          // A fix that fails to parse is lost, so say which one it was.
+          print("TRACKER: dropping unparseable location ${call.arguments}: $e");
           return;
         }
         cb(loc);

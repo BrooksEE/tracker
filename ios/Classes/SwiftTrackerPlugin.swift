@@ -42,7 +42,9 @@ public class SwiftTrackerPlugin: NSObject, FlutterPlugin, CLLocationManagerDeleg
    locationManager?.stopUpdatingLocation()
   }
   public func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        let location = locations.first
+        // locations is oldest first; when iOS batches fixes (it does in the
+        // background) the newest one is the last.
+        let location = locations.last
         let timeInSeconds = location?.timestamp.timeIntervalSince1970 ?? 0.0
         let map = [
             "lat": NSNumber(value: location?.coordinate.latitude ?? 0),
