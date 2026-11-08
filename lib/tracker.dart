@@ -84,7 +84,7 @@ enum EVENT_TYPE {
 class Tracker {
   static const int EARTH_RADIUS_METERS = 6371000;
   static const double METERS_PER_MILE = 1609.344;
-  static const double METERS_PER_KM = 10000;
+  static const double METERS_PER_KM = 1000;
 
   Participant? participant;
   UNITS units = UNITS.IMPERIAL;
@@ -800,7 +800,7 @@ class Tracker {
   }
 
   double getDistanceMeters() {
-    return (units == UNITS.IMPERIAL) ? distance * 1609.443 : distance * 1000;
+    return distance * ((units == UNITS.IMPERIAL) ? METERS_PER_MILE : METERS_PER_KM);
   }
 
   Future<void> replayHistory() async {
