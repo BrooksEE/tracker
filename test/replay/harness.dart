@@ -18,6 +18,11 @@ class TrackerEvents {
   int backOnCourse = 0;
   int? completedAtFix;
   int currentFix = 0;
+
+  /// Exceptions thrown while handling a fix. On a phone the location callback
+  /// drops that fix and carries on with the next; so does the replay.
+  int crashes = 0;
+  String? firstCrash;
   final List<double> rematchDistances = [];
 }
 
@@ -133,6 +138,7 @@ class RunResult {
         "big_jumps": bigJumps,
         "off_course_warnings": events.offCourseWarnings,
         "rematches": events.rematches,
+        "crashes": events.crashes,
         "millis": millis,
       };
 }
@@ -186,7 +192,12 @@ RunResult replay(Fixture fx, Track track, Condition condition,
         tracker.set_distance((fixes[i].truth * 10).round() / 10.0);
       }
       Fix f = fixes[i];
-      tracker.addPoint(Location(latLng: LatLng(f.lat, f.lon), epoch: f.epoch, accuracy: f.accuracy));
+      try {
+        tracker.addPoint(Location(latLng: LatLng(f.lat, f.lon), epoch: f.epoch, accuracy: f.accuracy));
+      } catch (e, st) {
+        ev.crashes++;
+        ev.firstCrash ??= "$e\n${st.toString().split("\n").take(4).join("\n")}";
+      }
       samples.add(Sample(f.epoch, f.truth, tracker.distance, tracker.segIdx));
     }
   }, zoneSpecification: ZoneSpecification(print: (self, parent, zone, line) {}));
