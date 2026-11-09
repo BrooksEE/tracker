@@ -22,8 +22,13 @@ class Simulator {
   }
 
   Future<bool> start(Tracker tracker, Map coursePath) async {
-
+    // Set before the first await so a stop() during startup isn't overwritten.
+    running = true;
     await Future.delayed(Duration(seconds: 5), () => false); // wait to start
+    if (!running) {
+      print("SIM stopped before starting");
+      return false;
+    }
 
     if(true) { // sim the route at a certain pace
       double pace = 1.05; // min/mile
@@ -49,7 +54,6 @@ class Simulator {
         Location location = Location(latLng: latLng, epoch: startTime, accuracy: 0);
         tracker.addPoint(location);
       }
-      running=true;
       int downsample=1;
       var rng = new Random();
       double noiseLat = nextNoise();
@@ -60,6 +64,10 @@ class Simulator {
         //print("SIM POINT: $idx, $dt");
         if(dt > 0) {
           await Future.delayed(Duration(milliseconds: (dt * 1000).toInt()), () => false);
+        }
+        if (!running) {
+          print("SIM is exiting");
+          return false;
         }
         noiseLat = 0.9*noiseLat + 0.1*nextNoise();
         noiseLon = 0.9*noiseLon + 0.1*nextNoise();
@@ -100,12 +108,15 @@ class Simulator {
           Location location = Location(latLng: latLng, epoch: DateTime.now().millisecondsSinceEpoch/1000.0, accuracy: points[0]["accuracyK"]/1000.0);
           tracker.addPoint(location);
         }
-        running=true;
         int downsample=1;
         for (idx = idx+downsample; idx < points.length; idx+=downsample) {
           dt = (points[idx]["epoch"] - points[idx - downsample]["epoch"]) / speedup;
           print("POINT $idx $dt");
           await Future.delayed(Duration(milliseconds: (dt * 1000).toInt()), () => false);
+          if (!running) {
+            print("SIM is exiting");
+            return false;
+          }
           LatLng latLng = LatLng(points[idx]["latM"]/1e6, points[idx]["lngM"]/1e6);
           Location location = Location(latLng: latLng, epoch: DateTime.now().millisecondsSinceEpoch/1000.0, accuracy: points[idx]["accuracyK"]/1000.0);
           tracker.addPoint(location);
