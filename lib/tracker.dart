@@ -58,10 +58,15 @@ class Location {
   late double accuracy;
 
   Location({required this.latLng, required this.epoch, required this.accuracy});
+  // Every field is read as num: Android sends this map as a JSONObject string,
+  // and JSONObject writes a whole-number value like an accuracy of 4.0 as "4",
+  // which jsonDecode returns as an int. Assigning that straight to a double
+  // threw, and the onLocation handler dropped the fix -- on Android 17 Pixels
+  // that was most screen-off fixes.
   Location.fromJson(Map<dynamic, dynamic> j) {
-    epoch = j['epoch'] / 1000.0;
-    accuracy = j['acc'];
-    latLng = LatLng(j['lat'], j['lon']);
+    epoch = (j['epoch'] as num) / 1000.0;
+    accuracy = (j['acc'] as num).toDouble();
+    latLng = LatLng((j['lat'] as num).toDouble(), (j['lon'] as num).toDouble());
   }
   String toString() {
     return "lat=${latLng.latitude} lon=${latLng.longitude} epoch=${epoch}";
@@ -79,7 +84,7 @@ enum EVENT_TYPE {
 class Tracker {
   static const int EARTH_RADIUS_METERS = 6371000;
   static const double METERS_PER_MILE = 1609.344;
-  static const double METERS_PER_KM = 10000;
+  static const double METERS_PER_KM = 1000;
 
   Participant? participant;
   UNITS units = UNITS.IMPERIAL;
@@ -137,7 +142,8 @@ class Tracker {
           }
           loc = Location.fromJson(locMap);
         } catch (e) {
-          print(e);
+          // A fix that fails to parse is lost, so say which one it was.
+          print("TRACKER: dropping unparseable location ${call.arguments}: $e");
           return;
         }
         cb(loc);
@@ -525,7 +531,8 @@ class Tracker {
       return;
     }
 
-    if (!replay && trackThisPoint(latLng)) {
+    // trackThisPoint searches the whole course; skip it when there is nowhere to upload
+    if (!replay && (_pntsCollection != null || _locRef != null) && trackThisPoint(latLng)) {
       if (_pntsCollection != null) {
         _pntsCollection!.add(latLng_).then((ref) {}, onError: (e) {
           print("exception writing point: ${e}");
@@ -794,7 +801,7 @@ class Tracker {
   }
 
   double getDistanceMeters() {
-    return (units == UNITS.IMPERIAL) ? distance * 1609.443 : distance * 1000;
+    return distance * ((units == UNITS.IMPERIAL) ? METERS_PER_MILE : METERS_PER_KM);
   }
 
   Future<void> replayHistory() async {
