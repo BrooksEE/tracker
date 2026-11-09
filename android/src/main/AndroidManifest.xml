@@ -1,3 +1,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
   package="com.example.tracker">
+
+  <!-- Lets the race-progress notification be promoted to a Live Update
+       (Android 16 QPR1+). A normal permission, granted at install. -->
+  <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
+
+  <application>
+    <!-- Told when the runner swipes the race-progress notification away. -->
+    <receiver
+      android:name=".ProgressDismissReceiver"
+      android:exported="false" />
+  </application>
 </manifest>

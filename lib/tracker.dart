@@ -24,6 +24,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as pth;
 import 'package:flutter_archive/flutter_archive.dart';
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 //import 'package:sensors/sensors.dart';
 //import 'package:flutter_background_geolocation/flutter_background_geolocation.dart' as bg;
 
@@ -58,14 +59,79 @@ class Location {
   late double accuracy;
 
   Location({required this.latLng, required this.epoch, required this.accuracy});
+  // Every field is read as num: Android sends this map as a JSONObject string,
+  // and JSONObject writes a whole-number value like an accuracy of 4.0 as "4",
+  // which jsonDecode returns as an int. Assigning that straight to a double
+  // threw, and the onLocation handler dropped the fix -- on Android 17 Pixels
+  // that was most screen-off fixes.
   Location.fromJson(Map<dynamic, dynamic> j) {
-    epoch = j['epoch'] / 1000.0;
-    accuracy = j['acc'];
-    latLng = LatLng(j['lat'], j['lon']);
+    epoch = (j['epoch'] as num) / 1000.0;
+    accuracy = (j['acc'] as num).toDouble();
+    latLng = LatLng((j['lat'] as num).toDouble(), (j['lon'] as num).toDouble());
   }
   String toString() {
     return "lat=${latLng.latitude} lon=${latLng.longitude} epoch=${epoch}";
   }
+}
+
+/// The full state of the race-progress display (see [Tracker.progressStart]).
+class TrackerProgress {
+  /// Distance covered, in [units].
+  final double distance;
+
+  /// Race distance in [units], or null while it isn't known yet.
+  final double? total;
+
+  /// "mi" or "km".
+  final String units;
+
+  /// Start time in epoch seconds when the clock should show, otherwise null.
+  final double? startEpoch;
+
+  /// Average pace, e.g. "08:29", or null to hide it.
+  final String? pace;
+
+  /// "Waiting for start", "Off course", or null.
+  final String? status;
+
+  TrackerProgress({
+    required this.distance,
+    required this.total,
+    required this.units,
+    this.startEpoch,
+    this.pace,
+    this.status,
+  });
+
+  String _dist(double d) => d.toStringAsFixed(1);
+
+  /// The notification's text line, e.g. "8.2 of 26.2 mi · 08:29/mi".
+  String get text {
+    if (status == "Waiting for start") return status!;
+    String line = total != null && total! > 0
+        ? "${_dist(distance)} of ${_dist(total!)} $units"
+        : "${_dist(distance)} $units";
+    if (status != null) return "$status · $line";
+    if (pace != null) line += " · $pace/$units";
+    return line;
+  }
+
+  /// Status-bar chip text, at most 6 characters: "13.1mi", "100mi". Null
+  /// before the start, where "0.0mi" would say nothing.
+  String? get chip => status == "Waiting for start"
+      ? null
+      : "${distance < 99.95 ? distance.toStringAsFixed(1) : distance.toStringAsFixed(0)}$units";
+
+  Map<String, dynamic> toMap() => {
+        "distance": distance,
+        "total": total,
+        "units": units,
+        "startEpoch": startEpoch,
+        "pace": pace,
+        "status": status,
+        "text": text,
+        "chip": chip,
+      };
 }
 
 enum EVENT_TYPE {
@@ -79,7 +145,7 @@ enum EVENT_TYPE {
 class Tracker {
   static const int EARTH_RADIUS_METERS = 6371000;
   static const double METERS_PER_MILE = 1609.344;
-  static const double METERS_PER_KM = 10000;
+  static const double METERS_PER_KM = 1000;
 
   Participant? participant;
   UNITS units = UNITS.IMPERIAL;
@@ -137,7 +203,8 @@ class Tracker {
           }
           loc = Location.fromJson(locMap);
         } catch (e) {
-          print(e);
+          // A fix that fails to parse is lost, so say which one it was.
+          print("TRACKER: dropping unparseable location ${call.arguments}: $e");
           return;
         }
         cb(loc);
@@ -151,6 +218,47 @@ class Tracker {
     print("STOPPING LOC SERVICES");
     _channel.setMethodCallHandler(null);
     await _channel.invokeMethod('stop');
+  }
+
+  // Race progress shown outside the app while tracking: an Android
+  // notification now, an iOS Live Activity later. See
+  // oyo/docs/race-progress-notification.md. The caller creates [token]; every
+  // call carries the full state, and calls for an ended token are ignored.
+
+  /// [primaryColor] and [secondaryColor] (ARGB) are the race theme's colors;
+  /// the native side uses whichever stands out on the notification in the
+  /// current light or dark mode for the position arrow, bar and ticks.
+  static Future<void> progressStart(String token, String title, TrackerProgress state,
+          {int? primaryColor, int? secondaryColor}) =>
+      _progressCall('progressStart', {
+        "token": token,
+        "title": title,
+        "state": state.toMap(),
+        "primaryColor": primaryColor,
+        "secondaryColor": secondaryColor,
+      });
+
+  /// [reshow] brings back a display the user dismissed; send it only when the
+  /// user has just opened the app, never from background updates.
+  static Future<void> progressUpdate(String token, TrackerProgress state, {bool reshow = false}) =>
+      _progressCall('progressUpdate', {"token": token, "state": state.toMap(), "reshow": reshow});
+
+  /// Ends the session: shows [text] (e.g. "Finished 3:42:10 · 08:29/mi") with a
+  /// full bar if [finished], otherwise at the distance reached. An empty
+  /// [text] shows no result.
+  static Future<void> progressEnd(String token, TrackerProgress state,
+          {required bool finished, required String text}) =>
+      _progressCall('progressEnd',
+          {"token": token, "state": state.toMap(), "finished": finished, "text": text});
+
+  static Future<void> _progressCall(String method, Map args) async {
+    if (kIsWeb) return;
+    try {
+      await _channel.invokeMethod(method, args);
+    } catch (e) {
+      // Never let the progress display break tracking.
+      print("TRACKER: $method failed: $e");
+    }
   }
 
   bool fireStoreSync;
@@ -525,7 +633,8 @@ class Tracker {
       return;
     }
 
-    if (!replay && trackThisPoint(latLng)) {
+    // trackThisPoint searches the whole course; skip it when there is nowhere to upload
+    if (!replay && (_pntsCollection != null || _locRef != null) && trackThisPoint(latLng)) {
       if (_pntsCollection != null) {
         _pntsCollection!.add(latLng_).then((ref) {}, onError: (e) {
           print("exception writing point: ${e}");
@@ -774,27 +883,27 @@ class Tracker {
     prevSeconds = 0;
     myLineFixed.points.clear();
     //myLine.points.clear();
+    // A re-match is rounded to 0.1 mi, so near the finish it can land past
+    // the end of the course: replay no further than the end.
+    if (distances != null && distances!.isNotEmpty) {
+      dist = math.min(dist, distances!.last);
+    }
     int sIdx = 0, pIdx = 0;
-    // now replay the points until distance == dist
-    while (distance < dist) {
-      while (distance < dist) {
-        LatLng latLng = segments[sIdx]["latlngs"][pIdx];
-        Location location = Location(latLng: latLng, epoch: 0, accuracy: 0);
-        addPoint(location, replay: true);
-        pIdx++;
-        if (pIdx >= segments[sIdx]["points"].length) {
-          sIdx++;
-          pIdx = 0;
-        }
-      }
-      if (segIdx >= segments.length) {
-        break;
+    // now replay the course's points until distance == dist
+    while (distance < dist && sIdx < segments.length) {
+      LatLng latLng = segments[sIdx]["latlngs"][pIdx];
+      Location location = Location(latLng: latLng, epoch: 0, accuracy: 0);
+      addPoint(location, replay: true);
+      pIdx++;
+      if (pIdx >= segments[sIdx]["points"].length) {
+        sIdx++;
+        pIdx = 0;
       }
     }
   }
 
   double getDistanceMeters() {
-    return (units == UNITS.IMPERIAL) ? distance * 1609.443 : distance * 1000;
+    return distance * ((units == UNITS.IMPERIAL) ? METERS_PER_MILE : METERS_PER_KM);
   }
 
   Future<void> replayHistory() async {
@@ -989,6 +1098,25 @@ Future<Map> get_mapp(int id, BuildContext context) async {
 
 Future<Map> get_from_path(int id) async {
   return await RPC().rpc("gmaps", "Mapp", "get_from_path", {"id": id}, "Fetching Map...");
+}
+
+/// The path with [pathId]: from the race's app-data bundle when it has it,
+/// otherwise over RPC. Null when neither has it. [raceData] is null when the
+/// race has no bundle (url_app_data unset).
+Future<Map?> pathFromId(Map? raceData, int pathId) async {
+  Map? path = raceData?["paths"]?[pathId.toString()];
+  if (path == null) {
+    Map data = await get_from_path(pathId);
+    List paths = data["mapp"]["paths"];
+    path = paths.firstWhere((p) => p["pk"] == pathId, orElse: () => null);
+  }
+  // The map editor writes a whole-degree coordinate as an int, which
+  // LatLng and every `double lat = pt["lat"]` reject.
+  for (Map p in path?["points"] ?? []) {
+    p["lat"] = (p["lat"] as num).toDouble();
+    p["lon"] = (p["lon"] as num).toDouble();
+  }
+  return path;
 }
 
 List<LatLng> toPoints(Map path) {

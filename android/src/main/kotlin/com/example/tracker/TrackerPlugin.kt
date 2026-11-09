@@ -91,6 +91,15 @@ class TrackerPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
     } else if (call.method == "stop") {
       stop();
       result.success(true)
+    } else if (call.method == "progressStart") {
+      progressStart(call)
+      result.success(true)
+    } else if (call.method == "progressUpdate") {
+      progressUpdate(call)
+      result.success(true)
+    } else if (call.method == "progressEnd") {
+      progressEnd(call)
+      result.success(true)
     } else {
       result.notImplemented()
     }
@@ -140,6 +149,49 @@ class TrackerPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
       Log.i("LOC", "starting service2")
     }
   }
+  // Race progress (see oyo/docs/race-progress-notification.md). Dart creates
+  // the session token and sends the full state on every call, so a call for an
+  // unknown or ended token is ignored and nothing depends on call order beyond
+  // start-before-end, which the channel guarantees.
+
+  private fun stateArg(call: MethodCall): Map<String, Any?> =
+    (call.argument<Map<String, Any?>>("state")) ?: emptyMap()
+
+  private fun isCurrent(call: MethodCall): Boolean =
+    ProgressSession.active && call.argument<String>("token") == ProgressSession.token
+
+  fun progressStart(call: MethodCall) {
+    ProgressSession.token = call.argument<String>("token")
+    ProgressSession.title = call.argument<String>("title") ?: ""
+    // Dart sends colors as ARGB ints; values over Int.MAX_VALUE arrive as Long.
+    ProgressSession.primaryColor = call.argument<Number>("primaryColor")?.toInt()
+    ProgressSession.secondaryColor = call.argument<Number>("secondaryColor")?.toInt()
+    ProgressSession.state = stateArg(call)
+    ProgressSession.active = true
+    ProgressSession.dismissed = false
+    ProgressNotification.cancelResult(context)
+    ProgressNotification.postProgress(context)
+  }
+
+  fun progressUpdate(call: MethodCall) {
+    if (!isCurrent(call)) return
+    ProgressSession.state = stateArg(call)
+    // The runner opened the app: bring back a progress bar they swiped away.
+    if (call.argument<Boolean>("reshow") == true) ProgressSession.dismissed = false
+    ProgressNotification.postProgress(context)
+  }
+
+  fun progressEnd(call: MethodCall) {
+    if (!isCurrent(call)) return
+    ProgressSession.state = stateArg(call)
+    ProgressSession.active = false
+    ProgressNotification.postEnd(
+      context,
+      call.argument<String>("text") ?: "",
+      call.argument<Boolean>("finished") ?: false
+    )
+  }
+
   inner class IncomingHandler(channel: MethodChannel?) : Handler() {
     override fun handleMessage(msg: Message) {
       val bundle: Bundle = msg.getData()

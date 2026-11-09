@@ -34,6 +34,7 @@ import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.OnCompleteListener
 import com.google.android.gms.tasks.Task
 import java.util.HashMap
@@ -80,14 +81,12 @@ public class Tracker : Service() {
             override fun onLocationResult(locationResult: LocationResult) {
                 super.onLocationResult(locationResult)
                 //Log.i("LOC", locationResult.toString())
-                onNewLocation(locationResult.getLastLocation())
+                locationResult.getLastLocation()?.let { onNewLocation(it) }
             }
         }
-        val locationRequest = LocationRequest.create()?.apply {
-                interval = 1000
-                fastestInterval = 500
-                priority = LocationRequest.PRIORITY_HIGH_ACCURACY
-        }
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000)
+                .setMinUpdateIntervalMillis(500)
+                .build()
 
         try {
             mFusedLocationClient?.getLastLocation()
@@ -98,7 +97,7 @@ public class Tracker : Service() {
                                 //onNewLocation(loc)
                                 mFusedLocationClient?.requestLocationUpdates(
                                         locationRequest,
-                                        mLocationCallback,
+                                        mLocationCallback!!,
                                         Looper.getMainLooper())
 
                             } else {
@@ -127,46 +126,16 @@ public class Tracker : Service() {
             startActivity(batteryIntent)
         }
 
-        val notificationIntent = packageManager
-            .getLaunchIntentForPackage(packageName)
-            ?.setPackage(null)
-            ?.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+        intent.getStringExtra("title")?.let { ProgressSession.plainTitle = it }
+        intent.getStringExtra("text")?.let { ProgressSession.plainText = it }
+        ProgressSession.serviceRunning = true
+        ProgressNotification.ensureChannel(this)
 
-        val pendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            notificationIntent,
-            PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val channelId =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                createNotificationChannel("tracker", "Tracker")
-            } else {
-                ""
-            }
-
-        val rId: Int? = resources.getIdentifier("notification", "drawable", packageName)
-        val notification = Notification.Builder(this, channelId)
-            .setContentTitle(intent.getStringExtra("title") ?: "TITLE")
-            .setContentText(intent.getStringExtra("text") ?: "text")
-            .setSmallIcon(rId ?: R.drawable.ic_fg)
-            .setContentIntent(pendingIntent)
-            .build()
-
-        startForeground(1, notification)
+        // The race-progress bar if a session is already showing it (the plugin
+        // may have posted it before this ran), otherwise the plain notification.
+        startForeground(ProgressNotification.ONGOING_ID, ProgressNotification.buildOngoing(this))
 
         return START_NOT_STICKY
-    }
-
-    private fun createNotificationChannel(channelId: String, channelName: String): String{
-        val chan = NotificationChannel(channelId,
-                channelName, NotificationManager.IMPORTANCE_NONE)
-        chan.lightColor = Color.BLUE
-        chan.lockscreenVisibility = Notification.VISIBILITY_PRIVATE
-        val service = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        service.createNotificationChannel(chan)
-        return channelId
     }
 
     override fun onBind(intent: Intent): IBinder? {
@@ -175,7 +144,8 @@ public class Tracker : Service() {
     }
 
     override fun onDestroy() {
-        mFusedLocationClient?.removeLocationUpdates(mLocationCallback)
+        ProgressSession.serviceRunning = false
+        mLocationCallback?.let { mFusedLocationClient?.removeLocationUpdates(it) }
         Toast.makeText(this, "service done", Toast.LENGTH_SHORT).show()
 //        if(result != null) {
 //            scanner?.stopScan(result)
