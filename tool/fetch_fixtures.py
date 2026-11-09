@@ -31,6 +31,7 @@ fix-by-fix matcher can be. It is an estimate, not ground truth, but a much
 better one than any online matcher's. Participant and device ids are dropped.
 """
 import argparse
+import base64
 import gzip
 import json
 import math
@@ -220,10 +221,23 @@ def export_courses(pids_by_race, segmented_only):
 
 
 def _export(request):
-    py = os.path.join(BROOKSEE, "env", "bin", "python")
+    """Run tool/export_courses.py against the production database: locally
+    in the brooksee3port venv, or -- with BROOKSEE_SSH=<host> -- on that host
+    in its /opt/brooksee3port (for when this machine's address isn't allowed
+    to reach the database). The script is sent over ssh, not copied there."""
     req = json.dumps(request)
-    out = subprocess.run([py, "-I", os.path.join(HERE, "export_courses.py")], input=req,
-                         capture_output=True, text=True, cwd=BROOKSEE, check=True)
+    script = os.path.join(HERE, "export_courses.py")
+    host = os.environ.get("BROOKSEE_SSH")
+    if host:
+        code = base64.b64encode(open(script, "rb").read()).decode()
+        cmd = ["ssh", "-o", "BatchMode=yes", host,
+               f"cd /opt/brooksee3port && env/bin/python -I -c "
+               f"'import base64; exec(base64.b64decode(\"{code}\"))'"]
+        out = subprocess.run(cmd, input=req, capture_output=True, text=True, check=True)
+    else:
+        py = os.path.join(BROOKSEE, "env", "bin", "python")
+        out = subprocess.run([py, "-I", script], input=req, capture_output=True, text=True,
+                             cwd=BROOKSEE, check=True)
     return json.loads(out.stdout)
 
 
