@@ -531,7 +531,8 @@ class Tracker {
       return;
     }
 
-    if (!replay && trackThisPoint(latLng)) {
+    // trackThisPoint searches the whole course; skip it when there is nowhere to upload
+    if (!replay && (_pntsCollection != null || _locRef != null) && trackThisPoint(latLng)) {
       if (_pntsCollection != null) {
         _pntsCollection!.add(latLng_).then((ref) {}, onError: (e) {
           print("exception writing point: ${e}");
