@@ -24,6 +24,24 @@ void main() {
     });
   });
 
+  group("set_distance", () {
+    test("past the end of the course stops at the finish", () {
+      // a re-match near the finish is rounded to 0.1 mi and can land past it
+      Tracker t = _tracker(outAndBack());
+      double total = t.distances!.last;
+      t.set_distance(total + 0.05);
+      expect(t.distance, closeTo(total, 1e-9));
+    });
+
+    test("mid-course resumes there", () {
+      Tracker t = _tracker(outAndBack());
+      t.set_distance(1.5);
+      expect(t.distance, greaterThanOrEqualTo(1.5));
+      expect(t.distance, lessThan(1.51));
+      expect(t.segIdx, 1);
+    });
+  });
+
   // A runner on a two-way road with ordinary GPS noise (8 m).
   Condition gps = Condition("gps8", "8 m gaussian noise", fixes: [noise(8)]);
 

@@ -781,21 +781,21 @@ class Tracker {
     prevSeconds = 0;
     myLineFixed.points.clear();
     //myLine.points.clear();
+    // A re-match is rounded to 0.1 mi, so near the finish it can land past
+    // the end of the course: replay no further than the end.
+    if (distances != null && distances!.isNotEmpty) {
+      dist = math.min(dist, distances!.last);
+    }
     int sIdx = 0, pIdx = 0;
-    // now replay the points until distance == dist
-    while (distance < dist) {
-      while (distance < dist) {
-        LatLng latLng = segments[sIdx]["latlngs"][pIdx];
-        Location location = Location(latLng: latLng, epoch: 0, accuracy: 0);
-        addPoint(location, replay: true);
-        pIdx++;
-        if (pIdx >= segments[sIdx]["points"].length) {
-          sIdx++;
-          pIdx = 0;
-        }
-      }
-      if (segIdx >= segments.length) {
-        break;
+    // now replay the course's points until distance == dist
+    while (distance < dist && sIdx < segments.length) {
+      LatLng latLng = segments[sIdx]["latlngs"][pIdx];
+      Location location = Location(latLng: latLng, epoch: 0, accuracy: 0);
+      addPoint(location, replay: true);
+      pIdx++;
+      if (pIdx >= segments[sIdx]["points"].length) {
+        sIdx++;
+        pIdx = 0;
       }
     }
   }
