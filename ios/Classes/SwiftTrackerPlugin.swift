@@ -22,6 +22,10 @@ public class SwiftTrackerPlugin: NSObject, FlutterPlugin, CLLocationManagerDeleg
     } else if(call.method == "stop") {
         stop()
         result(true)
+    } else if(call.method == "progressStart" || call.method == "progressUpdate" || call.method == "progressEnd") {
+        // Race progress: Android only for now; the iOS Live Activity comes later
+        // (oyo/docs/race-progress-notification.md).
+        result(nil)
     } else {
         result(FlutterMethodNotImplemented)
     }

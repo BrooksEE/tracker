@@ -24,6 +24,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as pth;
 import 'package:flutter_archive/flutter_archive.dart';
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 //import 'package:sensors/sensors.dart';
 //import 'package:flutter_background_geolocation/flutter_background_geolocation.dart' as bg;
 
@@ -71,6 +72,66 @@ class Location {
   String toString() {
     return "lat=${latLng.latitude} lon=${latLng.longitude} epoch=${epoch}";
   }
+}
+
+/// The full state of the race-progress display (see [Tracker.progressStart]).
+class TrackerProgress {
+  /// Distance covered, in [units].
+  final double distance;
+
+  /// Race distance in [units], or null while it isn't known yet.
+  final double? total;
+
+  /// "mi" or "km".
+  final String units;
+
+  /// Start time in epoch seconds when the clock should show, otherwise null.
+  final double? startEpoch;
+
+  /// Average pace, e.g. "08:29", or null to hide it.
+  final String? pace;
+
+  /// "Waiting for start", "Off course", or null.
+  final String? status;
+
+  TrackerProgress({
+    required this.distance,
+    required this.total,
+    required this.units,
+    this.startEpoch,
+    this.pace,
+    this.status,
+  });
+
+  String _dist(double d) => d.toStringAsFixed(1);
+
+  /// The notification's text line, e.g. "8.2 of 26.2 mi · 08:29/mi".
+  String get text {
+    if (status == "Waiting for start") return status!;
+    String line = total != null && total! > 0
+        ? "${_dist(distance)} of ${_dist(total!)} $units"
+        : "${_dist(distance)} $units";
+    if (status != null) return "$status · $line";
+    if (pace != null) line += " · $pace/$units";
+    return line;
+  }
+
+  /// Status-bar chip text, at most 6 characters: "13.1mi", "100mi". Null
+  /// before the start, where "0.0mi" would say nothing.
+  String? get chip => status == "Waiting for start"
+      ? null
+      : "${distance < 99.95 ? distance.toStringAsFixed(1) : distance.toStringAsFixed(0)}$units";
+
+  Map<String, dynamic> toMap() => {
+        "distance": distance,
+        "total": total,
+        "units": units,
+        "startEpoch": startEpoch,
+        "pace": pace,
+        "status": status,
+        "text": text,
+        "chip": chip,
+      };
 }
 
 enum EVENT_TYPE {
@@ -157,6 +218,47 @@ class Tracker {
     print("STOPPING LOC SERVICES");
     _channel.setMethodCallHandler(null);
     await _channel.invokeMethod('stop');
+  }
+
+  // Race progress shown outside the app while tracking: an Android
+  // notification now, an iOS Live Activity later. See
+  // oyo/docs/race-progress-notification.md. The caller creates [token]; every
+  // call carries the full state, and calls for an ended token are ignored.
+
+  /// [primaryColor] and [secondaryColor] (ARGB) are the race theme's colors;
+  /// the native side uses whichever stands out on the notification in the
+  /// current light or dark mode for the position arrow, bar and ticks.
+  static Future<void> progressStart(String token, String title, TrackerProgress state,
+          {int? primaryColor, int? secondaryColor}) =>
+      _progressCall('progressStart', {
+        "token": token,
+        "title": title,
+        "state": state.toMap(),
+        "primaryColor": primaryColor,
+        "secondaryColor": secondaryColor,
+      });
+
+  /// [reshow] brings back a display the user dismissed; send it only when the
+  /// user has just opened the app, never from background updates.
+  static Future<void> progressUpdate(String token, TrackerProgress state, {bool reshow = false}) =>
+      _progressCall('progressUpdate', {"token": token, "state": state.toMap(), "reshow": reshow});
+
+  /// Ends the session: shows [text] (e.g. "Finished 3:42:10 · 08:29/mi") with a
+  /// full bar if [finished], otherwise at the distance reached. An empty
+  /// [text] shows no result.
+  static Future<void> progressEnd(String token, TrackerProgress state,
+          {required bool finished, required String text}) =>
+      _progressCall('progressEnd',
+          {"token": token, "state": state.toMap(), "finished": finished, "text": text});
+
+  static Future<void> _progressCall(String method, Map args) async {
+    if (kIsWeb) return;
+    try {
+      await _channel.invokeMethod(method, args);
+    } catch (e) {
+      // Never let the progress display break tracking.
+      print("TRACKER: $method failed: $e");
+    }
   }
 
   bool fireStoreSync;
