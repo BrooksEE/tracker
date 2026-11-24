@@ -1,6 +1,6 @@
 // The race-progress Live Activity's data.
 //
-// Two identical copies: tracker/ios/Classes/RaceProgressAttributes.swift (the
+// Two identical copies: tracker/ios/tracker/Sources/tracker/RaceProgressAttributes.swift (the
 // app side, which starts and updates the Live Activity) and
 // oyo/ios/LiveActivity/RaceProgressAttributes.swift (the widget extension,
 // which draws it). ActivityKit matches them by type name and fields, so change

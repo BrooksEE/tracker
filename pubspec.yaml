@@ -24,9 +24,9 @@ dependencies:
     #git:
     #  url: https://github.com/BrooksEE/event_db.git
     path: ../db
-  archive: ^4.6.0
-  cloud_firestore: ^7.1.0
-  firebase_auth: ^7.0.1
+  archive: ^4.7.1
+  cloud_firestore: ^7.2.0
+  firebase_auth: ^7.1.0
 
 dev_dependencies:
   flutter_test:

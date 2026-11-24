@@ -2,14 +2,14 @@ import Flutter
 import UIKit
 import CoreLocation
 
-public class SwiftTrackerPlugin: NSObject, FlutterPlugin, CLLocationManagerDelegate {
+public class TrackerPlugin: NSObject, FlutterPlugin, CLLocationManagerDelegate {
   var locationManager: CLLocationManager?
   private var startResult: FlutterResult?
   var channel : FlutterMethodChannel?
     
   public static func register(with registrar: FlutterPluginRegistrar) {
     let channel:FlutterMethodChannel = FlutterMethodChannel(name: "tracker", binaryMessenger: registrar.messenger())
-    let instance = SwiftTrackerPlugin()
+    let instance = TrackerPlugin()
     registrar.addMethodCallDelegate(instance, channel: channel)
     instance.channel = channel
   }
@@ -147,15 +147,8 @@ public class SwiftTrackerPlugin: NSObject, FlutterPlugin, CLLocationManagerDeleg
     #endif
 
     func isHighAccuracyPermitted() -> Bool {
-        if (__IPHONE_14_0 != 0) {
-        if #available(iOS 14.0, *) {
-            let accuracy = locationManager?.accuracyAuthorization
-            if accuracy == .reducedAccuracy {
-                return false
-            }
-        }
-        }
-        return true
+        // accuracyAuthorization is iOS 14+; the plugin's minimum is iOS 15.
+        return locationManager?.accuracyAuthorization != .reducedAccuracy
     }
 
 }

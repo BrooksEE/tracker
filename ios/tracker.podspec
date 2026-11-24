@@ -13,7 +13,7 @@ A new flutter plugin project.
   s.license          = { :file => '../LICENSE' }
   s.author           = { 'Your Company' => 'email@example.com' }
   s.source           = { :path => '.' }
-  s.source_files = 'Classes/**/*'
+  s.source_files = 'tracker/Sources/tracker/**/*'
   s.dependency 'Flutter'
   s.platform = :ios, '15.0'
   # The race-progress Live Activity needs iOS 16.2; weak-link so iOS 15 still runs.
